@@ -185,8 +185,8 @@ New agents (Copilot, Cursor, etc.) plug in here.
 1. Receive `proposed` event with tool payload.
 2. Compute proposed file text: for `Edit` apply `old_string→new_string` (require exactly one match, else mark `uncertain`); for `Write` use `content`; for `MultiEdit` apply sequentially.
 3. Parse proposed text in an in-memory parser instance (not touching disk).
-4. Build partial graph, merge into a *clone* of the current graph, diff against current.
-5. Show in UI as a "Pending" diff badge; when `applied` arrives, promote to a real snapshot and discard the preview.
+4. `previewGraph()` extracts facts for the proposed text and resolves against a *copy* of the facts map (the builder's real facts are untouched), then `GraphService.view()` diffs current → would-be graph.
+5. Shown as a "Pending edit" banner + diff. Cleared when: the matching `applied` arrives (then the real rebuild makes a snapshot), the proposal is discarded (`PostToolUseFailure` / `PermissionDenied` / `Stop`), history is cleared, or a newer proposal replaces it (one preview at a time).
 
 ## 8. Webview
 

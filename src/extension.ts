@@ -84,7 +84,16 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     panel.post({ type: 'graph:update', graph: toPayload(view, graph.snapshots.list) });
   });
 
+  tracker.on('proposed', (e) => {
+    graph.setPending(
+      { editId: e.id, toolUseId: e.toolUseId, file: e.file, uncertain: !!e.uncertain },
+      e.after,
+    );
+  });
+  tracker.on('cleared', () => graph.clearPending());
+  tracker.on('discarded', (dropped) => dropped.forEach((e) => graph.clearPending({ editId: e.id })));
   tracker.on('applied', (e) => {
+    graph.clearPending({ toolUseId: e.toolUseId, file: e.file });
     if (e.kind === 'delete') graph.removeFile(e.file, e.id);
     else if (e.after !== undefined) graph.setFile(e.file, e.after, e.id);
   });

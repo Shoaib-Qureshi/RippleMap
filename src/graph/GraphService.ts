@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import type { GraphBuilder } from './GraphBuilder';
 import { diffGraphs, type GraphDiff } from './GraphDiffer';
 import { SnapshotStore, type Snapshot } from './SnapshotStore';
+import { previewGraph, type PendingPreview } from '../preview/PendingEditPreview';
 import { emptyGraph, type Graph } from './types';
 
 const REBUILD_DEBOUNCE_MS = 30;
@@ -14,6 +15,8 @@ export interface GraphView {
   /** The snapshot being shown as "after" (null before the first index). */
   step: Snapshot | null;
   stepIndex: number;
+  /** Set when previewing a proposed edit: base = current graph, after = would-be graph. */
+  pending: PendingPreview | null;
 }
 
 /**
@@ -25,6 +28,8 @@ export class GraphService extends EventEmitter<{ update: [] }> {
   readonly snapshots: SnapshotStore;
   /** Index into snapshots.list being inspected; null = follow the latest. */
   selected: number | null = null;
+  /** Latest proposed edit being previewed. ponytail: one at a time; the newest proposal wins. */
+  pending: PendingPreview | null = null;
   private timer: NodeJS.Timeout | undefined;
   private pendingEdits: string[] = [];
   private pendingFiles = new Set<string>();
@@ -70,13 +75,48 @@ export class GraphService extends EventEmitter<{ update: [] }> {
     this.emit('update');
   }
 
+  setPending(p: Omit<PendingPreview, 'graph'>, text: string | undefined): void {
+    this.flush(); // preview against an up-to-date current graph
+    this.pending = { ...p, graph: previewGraph(this.builder, p.file, text) };
+    this.emit('update');
+  }
+
+  /** Drops the preview (all, or only if it matches the edit / tool call). Returns true if it was cleared. */
+  clearPending(match?: { editId?: string; toolUseId?: string; file?: string }): boolean {
+    const p = this.pending;
+    if (!p) return false;
+    if (
+      match &&
+      !(
+        match.editId === p.editId ||
+        (match.toolUseId && match.toolUseId === p.toolUseId) ||
+        match.file === p.file
+      )
+    )
+      return false;
+    this.pending = null;
+    this.emit('update');
+    return true;
+  }
+
   view(): GraphView {
+    if (this.pending) {
+      const latest = this.snapshots.latest ?? null;
+      return {
+        base: this.graph,
+        after: this.pending.graph,
+        diff: diffGraphs(this.graph, this.pending.graph),
+        step: latest,
+        stepIndex: this.snapshots.list.length - 1,
+        pending: this.pending,
+      };
+    }
     const list = this.snapshots.list;
     const i = this.selected ?? list.length - 1;
     const step = list[i] ?? null;
     const after = step?.graph ?? this.graph;
     const base = list[i - 1]?.graph ?? after;
-    return { base, after, diff: diffGraphs(base, after), step, stepIndex: i };
+    return { base, after, diff: diffGraphs(base, after), step, stepIndex: i, pending: null };
   }
 
   private schedule(file: string, editId?: string): void {

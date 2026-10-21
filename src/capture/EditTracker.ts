@@ -6,7 +6,13 @@ const MAX_EDITS = 300;
 /** A hook event and a disk/save event for the same file this close together are the same edit. */
 const MERGE_WINDOW_MS = 3000;
 
-type Events = { change: []; applied: [EditEvent]; proposed: [EditEvent]; cleared: [] };
+type Events = {
+  change: [];
+  applied: [EditEvent];
+  proposed: [EditEvent];
+  discarded: [EditEvent[]];
+  cleared: [];
+};
 
 /** Normalizes edits from every adapter into EditEvents. Pure: no vscode imports. */
 export class EditTracker extends EventEmitter<Events> {
@@ -98,13 +104,16 @@ export class EditTracker extends EventEmitter<Events> {
 
   /** Drops proposals that never landed (rejected / failed tool call). */
   discardProposed(toolUseId?: string): boolean {
-    const before = this.edits.length;
+    const dropped: EditEvent[] = [];
     for (let i = this.edits.length - 1; i >= 0; i--) {
       const e = this.edits[i]!;
-      if (e.status === 'proposed' && (!toolUseId || e.toolUseId === toolUseId)) this.edits.splice(i, 1);
+      if (e.status === 'proposed' && (!toolUseId || e.toolUseId === toolUseId))
+        dropped.push(...this.edits.splice(i, 1));
     }
-    const changed = this.edits.length !== before;
-    if (changed) this.emit('change');
-    return changed;
+    if (dropped.length) {
+      this.emit('discarded', dropped);
+      this.emit('change');
+    }
+    return dropped.length > 0;
   }
 }

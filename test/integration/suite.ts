@@ -224,6 +224,56 @@ test('editing one function marks it modified, lists it in the feed, and shows it
   }
 });
 
+test('pending preview appears before disk changes, is discarded on failure, and replaced on apply (M6)', async () => {
+  const { graph, indexed, tracker } = await api();
+  await indexed;
+  const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
+  const file = path.join(root, 'sample.ts');
+  const original = fs.readFileSync(file, 'utf8');
+  const base = {
+    session_id: 'sess-preview',
+    cwd: root,
+    tool_name: 'Edit',
+    tool_input: {
+      file_path: file,
+      old_string: 'export const other = 2;',
+      new_string: 'export const other = 2;\nexport function brandNew() {\n  return hello();\n}',
+    },
+  };
+  try {
+    // 1) Proposed, then the tool fails: preview shown, then discarded, disk untouched.
+    forward({ ...base, tool_use_id: 'tp1', hook_event_name: 'PreToolUse' });
+    const v = await waitFor(() => (graph.view().pending ? graph.view() : undefined), 'pending preview');
+    assert.ok(v.diff.addedNodes.includes('sample.ts::function::brandNew'));
+    assert.ok(v.diff.addedEdges.includes('sample.ts::function::brandNew->sample.ts::function::hello::calls'));
+    assert.equal(fs.readFileSync(file, 'utf8'), original);
+    forward({ ...base, tool_use_id: 'tp1', hook_event_name: 'PostToolUseFailure', error: 'denied' });
+    await waitFor(() => (graph.view().pending === null ? true : undefined), 'preview discarded');
+    assert.ok(!graph.graph.nodes.has('sample.ts::function::brandNew'));
+    assert.ok(!tracker.edits.some((e) => e.toolUseId === 'tp1'));
+
+    // 2) Proposed, applied: preview replaced by a real snapshot with the same change.
+    forward({ ...base, tool_use_id: 'tp2', hook_event_name: 'PreToolUse' });
+    await waitFor(() => graph.view().pending ?? undefined, 'pending preview 2');
+    fs.writeFileSync(file, original.replace(base.tool_input.old_string, base.tool_input.new_string));
+    forward({ ...base, tool_use_id: 'tp2', hook_event_name: 'PostToolUse', tool_response: {} });
+    await waitFor(
+      () =>
+        graph.view().pending === null && graph.graph.nodes.has('sample.ts::function::brandNew')
+          ? true
+          : undefined,
+      'applied',
+    );
+    assert.ok(graph.view().diff.addedNodes.includes('sample.ts::function::brandNew'));
+  } finally {
+    fs.writeFileSync(file, original);
+    await waitFor(
+      () => (!graph.graph.nodes.has('sample.ts::function::brandNew') ? true : undefined),
+      'restored',
+    );
+  }
+});
+
 test('webview renders the graph without runtime errors', async () => {
   const { webviewErrors } = await api();
   await vscode.commands.executeCommand('flowlens.openPanel');
