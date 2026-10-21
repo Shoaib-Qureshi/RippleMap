@@ -1,0 +1,12 @@
+# Everything runtime is bundled into dist/; ship only what the extension loads (no source maps).
+**
+!dist/extension.js
+!dist/webview/main.js
+!dist/webview/main.css
+!dist/grammars/*.wasm
+!hook/hook-forwarder.js
+!media/icon.png
+!media/icon.svg
+!package.json
+!README.md
+!CHANGELOG.md

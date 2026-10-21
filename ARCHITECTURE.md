@@ -208,6 +208,9 @@ webview → host: ready, openFile{file,line?}, scrub{index|null}, error{message}
 ```
 `GraphPayload` = before+after union with per-element `status`, summary, counts, step + steps (scrubber), pending, insights. Mode (Current/After/Diff), level, scope, layout and filters are webview-local state. Theme follows VS Code CSS variables automatically, so there is no theme message.
 
+### Export
+PNG/SVG/Mermaid of exactly what is visible. SVG is generated from our own layout (`webview/src/svgExport.ts`: boxes, clusters, bezier edges, theme colors resolved at export time); PNG rasterizes that SVG on a canvas at 2×. (DOM-screenshot libraries dropped React Flow's edge paths and need CSP exceptions.) The webview posts `export{format,data}`; the host validates the data URL, caps size (25 MB) and writes via a save dialog.
+
 ## 9. Security & privacy
 
 - HookServer: `127.0.0.1`, random port, per-session token header, request-size cap (5 MB), JSON schema validation.
@@ -227,8 +230,10 @@ webview → host: ready, openFile{file,line?}, scrub{index|null}, error{message}
 - Unit: `GraphDiffer`, `PendingEditPreview` (edit application edge cases).
 - Integration: `@vscode/test-electron` launching the extension on fixture workspaces.
 - Hook test: simulate Claude Code payloads to `HookServer`.
+- Packaged test: `npm run test:vsix` builds the `.vsix`, unpacks it, and runs the full integration suite against the unpacked copy (proves bundle, WASM grammars and hook forwarder are all shipped).
 - Windows CI job (GitHub Actions `windows-latest`) in addition to Linux.
+- Measured (M9, 2,000 real JS files / 15.8 MB, macOS): index 4.1 s (parse 4.0 s, resolve 0.09 s), 21k nodes / 47k edges; single-file update incl. diff, insights and payload 140–230 ms; ~300 MB heap.
 
 ## 12. Tech stack summary
 
-TypeScript · esbuild (extension) · Vite + React + React Flow + zustand (webview) · web-tree-sitter · dagre/elkjs · vitest · @vscode/test-electron · vsce for packaging.
+TypeScript · esbuild (extension) · Vite + React + React Flow (@xyflow/react) + zustand (webview) · @vscode/tree-sitter-wasm · dagre · jsdiff · vitest · @vscode/test-electron · vsce (`--no-dependencies`: everything is bundled).

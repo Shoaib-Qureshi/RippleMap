@@ -4,6 +4,7 @@ import type { RawEdit } from './capture/EditEvent';
 import { EditTracker } from './capture/EditTracker';
 import { HookServer } from './capture/HookServer';
 import { ManualEditAdapter } from './capture/ManualEditAdapter';
+import { saveExport } from './commands/exportGraph';
 import { ensureForwarder, registerHookCommands } from './commands/installHooks';
 import { extractors } from './graph/extractors';
 import { GraphBuilder } from './graph/GraphBuilder';
@@ -56,6 +57,10 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     if (m.type === 'error') {
       webviewErrors.push(m.message);
       log.error(`webview: ${m.message}`);
+    } else if (m.type === 'export') {
+      saveExport(m.format, m.data).catch(
+        (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: export failed: ${String(e)}`),
+      );
     } else if (m.type === 'scrub') {
       graph.select(m.index);
     } else if (m.type === 'openFile') {

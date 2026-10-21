@@ -321,3 +321,11 @@ button:hover {
   outline: 2px dashed var(--vscode-editorWarning-foreground, var(--fl-modified));
   outline-offset: 3px;
 }
+.fl-export {
+  display: flex;
+  gap: 4px;
+}
+.fl-export button {
+  font-size: 0.9em;
+  opacity: 0.85;
+}

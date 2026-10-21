@@ -1,9 +1,10 @@
 import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { useMemo } from 'react';
 import { useStore } from '../store';
-import { layoutGraph } from '../layout';
+import { layoutGraph, NODE_H, NODE_W } from '../layout';
 import { visibleGraph } from '../view';
 import { vscode } from '../vscode';
+import { ExportPanel } from './ExportPanel';
 import { ClusterNode, FlowNode, type ClusterData, type FlowNodeData } from './FlowNode';
 
 const nodeTypes = { flow: FlowNode, cluster: ClusterNode };
@@ -25,8 +26,10 @@ export function GraphCanvas() {
     [graph, level, mode, focus, search, folder, hiddenKinds, init],
   );
 
+  const positioned = useMemo(() => layoutGraph(visible.nodes, visible.edges, layout), [visible, layout]);
+
   const { nodes, edges } = useMemo(() => {
-    const { positions, clusters } = layoutGraph(visible.nodes, visible.edges, layout);
+    const { positions, clusters } = positioned;
     const vertical = layout === 'TB';
     // Diff colors only in Diff mode; unchanged elements are dimmed when something changed.
     const colored = mode === 'diff';
@@ -41,6 +44,8 @@ export function GraphCanvas() {
         position: { x: c.x, y: c.y },
         data: { label: c.label },
         style: { width: c.width, height: c.height },
+        width: c.width,
+        height: c.height,
         className: 'fl-cluster',
         selectable: false,
         draggable: false,
@@ -49,6 +54,9 @@ export function GraphCanvas() {
       ...visible.nodes.map((n): Node<FlowNodeData> => ({
         id: n.id,
         type: 'flow',
+        // Known sizes: controlled nodes never get measured dims written back, and the minimap needs them.
+        width: NODE_W,
+        height: NODE_H,
         position: positions.get(n.id)!,
         data: { node: n, vertical, status: colored ? n.status : 'unchanged' },
         selected: n.id === selectedId,
@@ -65,11 +73,15 @@ export function GraphCanvas() {
         type: MarkerType.ArrowClosed,
         width: 16,
         height: 16,
-        color: colored && e.status !== 'unchanged' ? `var(--fl-${e.status})` : undefined,
+        // Explicit color for every edge: an undefined color yields an invisible marker.
+        color:
+          colored && e.status !== 'unchanged'
+            ? `var(--fl-${e.status})`
+            : 'var(--vscode-editorLineNumber-foreground, #858585)',
       },
     }));
     return { nodes, edges };
-  }, [visible, layout, mode, selectedId, graph.insights]);
+  }, [visible, positioned, layout, mode, selectedId, graph.insights]);
 
   if (!graph.nodes.length)
     return (
@@ -115,6 +127,13 @@ export function GraphCanvas() {
       >
         <Background gap={24} size={1} />
         <Controls showInteractive={false} />
+        <ExportPanel
+          nodes={visible.nodes}
+          edges={visible.edges}
+          layout={positioned}
+          vertical={layout === 'TB'}
+          colored={mode === 'diff'}
+        />
         <MiniMap
           pannable
           zoomable

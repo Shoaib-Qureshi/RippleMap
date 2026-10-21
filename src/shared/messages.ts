@@ -48,13 +48,16 @@ export type WebviewToHost =
   | { type: 'openFile'; file: string; line?: number }
   | { type: 'error'; message: string }
   /** Inspect snapshot `index` (null = follow latest). */
-  | { type: 'scrub'; index: number | null };
+  | { type: 'scrub'; index: number | null }
+  /** png/svg: data URL; mermaid: text. */
+  | { type: 'export'; format: 'png' | 'svg' | 'mermaid'; data: string };
 
 const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'ready',
   'openFile',
   'error',
   'scrub',
+  'export',
 ]);
 
 /** Validates messages arriving from the webview before the host acts on them. */
@@ -65,6 +68,8 @@ export function isWebviewMessage(m: unknown): m is WebviewToHost {
   if (o.type === 'openFile')
     return typeof o.file === 'string' && (o.line === undefined || typeof o.line === 'number');
   if (o.type === 'error') return typeof o.message === 'string';
+  if (o.type === 'export')
+    return ['png', 'svg', 'mermaid'].includes(o.format as string) && typeof o.data === 'string';
   if (o.type === 'scrub')
     return o.index === null || (typeof o.index === 'number' && Number.isInteger(o.index) && o.index >= 0);
   return true;

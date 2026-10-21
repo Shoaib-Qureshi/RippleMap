@@ -229,7 +229,15 @@ test('pending preview appears before disk changes, is discarded on failure, and 
   await indexed;
   const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
   const file = path.join(root, 'sample.ts');
-  const original = fs.readFileSync(file, 'utf8');
+  // Known content (not read from disk) so a previously failed run can't poison the restore.
+  const original = "export const hello = () => 'world';\n\nexport const other = 2;\n";
+  if (fs.readFileSync(file, 'utf8') !== original) {
+    fs.writeFileSync(file, original);
+    await waitFor(
+      () => (!graph.graph.nodes.has('sample.ts::function::brandNew') ? true : undefined),
+      'clean start',
+    );
+  }
   const base = {
     session_id: 'sess-preview',
     cwd: root,

@@ -6,6 +6,21 @@
   "publisher": "tier2",
   "private": true,
   "license": "UNLICENSED",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#14213d",
+    "theme": "dark"
+  },
+  "keywords": [
+    "ai",
+    "claude code",
+    "call graph",
+    "dependency graph",
+    "diff",
+    "wordpress",
+    "visualization",
+    "vibe coding"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -160,7 +175,9 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:integration": "npm run build && node test/integration/runTests.mjs"
+    "test:integration": "npm run build && node test/integration/runTests.mjs",
+    "package": "npm run build && vsce package --no-dependencies --skip-license --allow-missing-repository --no-rewrite-relative-links -o flowlens.vsix",
+    "test:vsix": "npm run package && node test/integration/runTests.mjs --vsix flowlens.vsix"
   },
   "devDependencies": {
     "@dagrejs/dagre": "^3.1.1",
@@ -171,10 +188,12 @@
     "@types/vscode": "^1.90.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/tree-sitter-wasm": "^0.3.1",
+    "@vscode/vsce": "^4.0.0",
     "@xyflow/react": "^12.12.0",
+    "diff": "^9.0.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
-    "html-to-image": "^1.11.13",
     "npm-run-all2": "^9.0.3",
     "prettier": "^3.9.10",
     "react": "^19.3.1",
@@ -185,9 +204,5 @@
     "vite": "^8.3.5",
     "vitest": "^5.0.5",
     "zustand": "^5.0.15"
-  },
-  "dependencies": {
-    "@vscode/tree-sitter-wasm": "^0.3.1",
-    "diff": "^9.0.0"
   }
 }
