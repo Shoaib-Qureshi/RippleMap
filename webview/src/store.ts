@@ -36,6 +36,7 @@ export const useStore = create<State>((set, get) => ({
     step: null,
     steps: [],
     pending: null,
+    insights: [],
   },
   progress: null,
   level: 'files',

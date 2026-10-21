@@ -9,7 +9,7 @@ describe('pending-edit preview', () => {
   it('builds the would-be graph without touching the real facts', async () => {
     const b = await builderFor(fixture('py-app'));
     const factsBefore = b.facts.get('app/utils.py');
-    const g = previewGraph(
+    const { graph: g } = previewGraph(
       b,
       'app/utils.py',
       'def greet():\n    return shout()\n\n\ndef shout():\n    return "HI"\n',

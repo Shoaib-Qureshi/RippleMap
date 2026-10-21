@@ -179,7 +179,8 @@ New agents (Copilot, Cursor, etc.) plug in here.
 - `SnapshotStore`: in-memory ring buffer (`flowlens.snapshotLimit`, default 50) of `Graph`s. A snapshot is taken after the initial index (baseline) and after each rebuild caused by applied edits (rapid edits coalesce into one). Unchanged node/edge objects are shared between snapshots, so each costs ~Map overhead + what changed. Not persisted across reloads.
 - `GraphService.view()`: the inspected step *i* (latest by default) → `base = snapshot[i-1]`, `after = snapshot[i]`, `diff`. `payload.ts` sends the base+after union with a `status` per element; the webview's **Current** hides `added`, **After** hides `removed`, **Diff** colors everything (unchanged dimmed).
 - `GraphDiffer`: set difference on node/edge IDs; "modified" = same ID with a different content hash (text of the symbol/file), so lines merely shifting do not count.
-- `insights.ts`: detect new cycles (Tarjan SCC on the changed neighborhood), orphaned functions, removed edges whose callers still textually reference the symbol.
+- `insights.ts`, computed for the change being viewed (pending, latest or scrubbed step): **new cycles** (iterative Tarjan SCC over import edges and over call edges; reported only if the SCC contains an edge added by this change), **newly orphaned** functions/methods (had incoming calls/registrations, now none; framework entry nodes and closures excluded), and **dangling calls** (a removed symbol whose name is still referenced in current facts; latest/pending only).
+- Time scrubber: `scrub {index}` selects snapshot *i* (shows *i−1 → i*); `null` follows the latest. Scrubbing takes precedence over a live pending preview.
 - Summary generator: templated natural language (no LLM needed). Optional LLM explanation later.
 
 ## 7. Pre-edit preview
@@ -200,10 +201,12 @@ New agents (Copilot, Cursor, etc.) plug in here.
 - Webview runtime errors are posted back (`error` message) and logged to the "FlowLens" output channel; an integration test asserts none occur.
 
 ### Message protocol (typed)
+Defined in `src/shared/messages.ts` (single source of truth):
 ```
-host → webview: init, graph:update, diff:update, edits:update, selection:set, theme:change
-webview → host: ready, openFile{file,line}, selectEdit{id}, setMode{current|after|diff}, scrub{snapshotId}, requestExport{format}
+host → webview: init{version,workspaceName,maxNodes}, graph:update{GraphPayload}, index:progress{done,total}
+webview → host: ready, openFile{file,line?}, scrub{index|null}, error{message}   (+ export messages from M9)
 ```
+`GraphPayload` = before+after union with per-element `status`, summary, counts, step + steps (scrubber), pending, insights. Mode (Current/After/Diff), level, scope, layout and filters are webview-local state. Theme follows VS Code CSS variables automatically, so there is no theme message.
 
 ## 9. Security & privacy
 

@@ -31,6 +31,7 @@ export function GraphCanvas() {
     // Diff colors only in Diff mode; unchanged elements are dimmed when something changed.
     const colored = mode === 'diff';
     const anyChange = colored && visible.nodes.some((n) => n.status !== 'unchanged');
+    const warned = new Set(graph.insights.flatMap((w) => w.nodeIds));
     const cls = (status: string) =>
       colored ? `status-${status}${anyChange && status === 'unchanged' ? ' dimmed' : ''}` : '';
     const nodes: Node[] = [
@@ -51,7 +52,7 @@ export function GraphCanvas() {
         position: positions.get(n.id)!,
         data: { node: n, vertical, status: colored ? n.status : 'unchanged' },
         selected: n.id === selectedId,
-        className: cls(n.status),
+        className: `${cls(n.status)}${warned.has(n.id) ? ' warn' : ''}`,
       })),
     ];
     const edges: Edge[] = visible.edges.map((e): Edge => ({
@@ -68,7 +69,7 @@ export function GraphCanvas() {
       },
     }));
     return { nodes, edges };
-  }, [visible, layout, mode, selectedId]);
+  }, [visible, layout, mode, selectedId, graph.insights]);
 
   if (!graph.nodes.length)
     return (

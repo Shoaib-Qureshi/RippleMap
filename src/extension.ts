@@ -56,6 +56,8 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     if (m.type === 'error') {
       webviewErrors.push(m.message);
       log.error(`webview: ${m.message}`);
+    } else if (m.type === 'scrub') {
+      graph.select(m.index);
     } else if (m.type === 'openFile') {
       const uri = toUri(m.file);
       if (!uri) return;

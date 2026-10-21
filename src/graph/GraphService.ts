@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import type { GraphBuilder } from './GraphBuilder';
 import { diffGraphs, type GraphDiff } from './GraphDiffer';
+import { insights, type Insight } from './insights';
 import { SnapshotStore, type Snapshot } from './SnapshotStore';
 import { previewGraph, type PendingPreview } from '../preview/PendingEditPreview';
 import { emptyGraph, type Graph } from './types';
@@ -17,6 +18,7 @@ export interface GraphView {
   stepIndex: number;
   /** Set when previewing a proposed edit: base = current graph, after = would-be graph. */
   pending: PendingPreview | null;
+  insights: Insight[];
 }
 
 /**
@@ -75,9 +77,9 @@ export class GraphService extends EventEmitter<{ update: [] }> {
     this.emit('update');
   }
 
-  setPending(p: Omit<PendingPreview, 'graph'>, text: string | undefined): void {
+  setPending(p: Omit<PendingPreview, 'graph' | 'facts'>, text: string | undefined): void {
     this.flush(); // preview against an up-to-date current graph
-    this.pending = { ...p, graph: previewGraph(this.builder, p.file, text) };
+    this.pending = { ...p, ...previewGraph(this.builder, p.file, text) };
     this.emit('update');
   }
 
@@ -100,15 +102,18 @@ export class GraphService extends EventEmitter<{ update: [] }> {
   }
 
   view(): GraphView {
-    if (this.pending) {
+    // Scrubbing history wins over a live preview.
+    if (this.pending && this.selected === null) {
+      const d = diffGraphs(this.graph, this.pending.graph);
       const latest = this.snapshots.latest ?? null;
       return {
         base: this.graph,
         after: this.pending.graph,
-        diff: diffGraphs(this.graph, this.pending.graph),
+        diff: d,
         step: latest,
         stepIndex: this.snapshots.list.length - 1,
         pending: this.pending,
+        insights: insights(this.graph, this.pending.graph, d, this.pending.facts),
       };
     }
     const list = this.snapshots.list;
@@ -116,7 +121,18 @@ export class GraphService extends EventEmitter<{ update: [] }> {
     const step = list[i] ?? null;
     const after = step?.graph ?? this.graph;
     const base = list[i - 1]?.graph ?? after;
-    return { base, after, diff: diffGraphs(base, after), step, stepIndex: i, pending: null };
+    const diff = diffGraphs(base, after);
+    // Dangling-call check needs current facts, which only match the latest snapshot.
+    const facts = i === list.length - 1 || list.length === 0 ? this.builder.facts : undefined;
+    return {
+      base,
+      after,
+      diff,
+      step,
+      stepIndex: i,
+      pending: null,
+      insights: insights(base, after, diff, facts),
+    };
   }
 
   private schedule(file: string, editId?: string): void {

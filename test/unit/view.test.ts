@@ -21,6 +21,7 @@ const g: GraphPayload = {
   step: null,
   steps: [],
   pending: null,
+  insights: [],
 };
 const opts: ViewOptions = {
   level: 'files',

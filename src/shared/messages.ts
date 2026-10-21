@@ -34,6 +34,8 @@ export interface GraphPayload {
   steps: StepInfo[];
   /** Set while previewing an agent's proposed edit (diff = current vs would-be graph). */
   pending: { file: string; uncertain: boolean } | null;
+  /** Risk warnings for this change: new cycles, orphaned functions, calls to removed symbols. */
+  insights: { kind: 'cycle' | 'orphan' | 'dangling'; message: string; nodeIds: string[] }[];
 }
 
 export type HostToWebview =
@@ -42,9 +44,18 @@ export type HostToWebview =
   | { type: 'index:progress'; done: number; total: number };
 
 export type WebviewToHost =
-  { type: 'ready' } | { type: 'openFile'; file: string; line?: number } | { type: 'error'; message: string };
+  | { type: 'ready' }
+  | { type: 'openFile'; file: string; line?: number }
+  | { type: 'error'; message: string }
+  /** Inspect snapshot `index` (null = follow latest). */
+  | { type: 'scrub'; index: number | null };
 
-const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>(['ready', 'openFile', 'error']);
+const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
+  'ready',
+  'openFile',
+  'error',
+  'scrub',
+]);
 
 /** Validates messages arriving from the webview before the host acts on them. */
 export function isWebviewMessage(m: unknown): m is WebviewToHost {
@@ -54,5 +65,7 @@ export function isWebviewMessage(m: unknown): m is WebviewToHost {
   if (o.type === 'openFile')
     return typeof o.file === 'string' && (o.line === undefined || typeof o.line === 'number');
   if (o.type === 'error') return typeof o.message === 'string';
+  if (o.type === 'scrub')
+    return o.index === null || (typeof o.index === 'number' && Number.isInteger(o.index) && o.index >= 0);
   return true;
 }
