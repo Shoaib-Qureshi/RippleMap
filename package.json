@@ -14,15 +14,106 @@
     "Other"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
       {
         "command": "flowlens.openPanel",
         "title": "Open Panel",
+        "category": "FlowLens",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "flowlens.clearHistory",
+        "title": "Clear Edit History",
+        "category": "FlowLens",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "flowlens.showEditDiff",
+        "title": "Show Edit Diff",
         "category": "FlowLens"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "flowlens",
+          "title": "FlowLens",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "flowlens": [
+        {
+          "id": "flowlens.editFeed",
+          "name": "Edit Feed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "flowlens.editFeed",
+        "contents": "No edits yet. Save a file or let your AI agent edit one.\n[Open Graph Panel](command:flowlens.openPanel)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "flowlens.openPanel",
+          "when": "view == flowlens.editFeed",
+          "group": "navigation"
+        },
+        {
+          "command": "flowlens.clearHistory",
+          "when": "view == flowlens.editFeed",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "flowlens.showEditDiff",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "FlowLens",
+      "properties": {
+        "flowlens.excludeFolders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "node_modules",
+            "vendor",
+            "dist",
+            "build",
+            "out",
+            ".git",
+            ".next",
+            ".vscode-test",
+            "coverage",
+            "__pycache__",
+            ".venv",
+            "venv",
+            "wp-includes",
+            "wp-admin"
+          ],
+          "description": "Folder names ignored for edit tracking and graph indexing."
+        },
+        "flowlens.decorationFadeSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 5,
+          "description": "How long edited-line highlights take to fade out."
+        }
+      }
+    }
   },
   "scripts": {
     "clean": "rimraf dist out",
@@ -39,6 +130,7 @@
     "test:integration": "npm run build && node test/integration/runTests.mjs"
   },
   "devDependencies": {
+    "@dagrejs/dagre": "^3.1.1",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
@@ -46,8 +138,10 @@
     "@types/vscode": "^1.90.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@vscode/test-electron": "^3.1.0",
+    "@xyflow/react": "^12.12.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
+    "html-to-image": "^1.11.13",
     "npm-run-all2": "^9.0.3",
     "prettier": "^3.9.10",
     "react": "^19.3.1",
@@ -58,5 +152,9 @@
     "vite": "^8.3.5",
     "vitest": "^5.0.5",
     "zustand": "^5.0.15"
+  },
+  "dependencies": {
+    "@vscode/tree-sitter-wasm": "^0.3.1",
+    "diff": "^9.0.0"
   }
 }

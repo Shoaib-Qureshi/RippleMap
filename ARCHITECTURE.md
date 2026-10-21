@@ -120,7 +120,9 @@ interface EditEvent {
   before?: string;         // text before
   after?: string;          // text after (or proposed)
   changedRanges: { startLine: number; endLine: number }[];
+  added?: number; removed?: number; // undefined = before unknown
 }
+// Lives in src/capture/EditEvent.ts (with RawEdit, what adapters emit).
 
 interface Snapshot { id: string; ts: number; editIds: string[]; graph: SerializedGraph; }
 
@@ -143,13 +145,16 @@ Stable node IDs are essential — diffing relies on them. Use relative path + ki
 - Windows: quote paths, avoid shell-specific syntax, normalize `\` to `/` internally.
 
 ### 4.2 Fallback
-- `workspace.onDidChangeTextDocument` + `createFileSystemWatcher` with debounce (150 ms). Mark source `manual` unless a recent hook event matches the file.
+- `ManualEditAdapter`: one edit per **save** (`onDidSaveTextDocument`) + `createFileSystemWatcher` for changes made outside the editor, debounced 150 ms per file.
+- `EditTracker` keeps last-known text per file (seeded from open documents and, from M3, the workspace index). Files with no baseline produce an edit with **unknown before** (no +/- counts) until the next edit.
+- Merging (3 s window, same file): a manual event identical to a recent agent event is dropped; an agent event arriving after a watcher event replaces it (relabelled as AI); an `applied` event replaces its `proposed` event (matched by `tool_use_id`).
+- Activation is `onStartupFinished`, so tracking starts without slowing startup.
 
 ### 4.3 AgentAdapter interface
 ```ts
 interface AgentAdapter {
   id: string;
-  start(emit: (e: EditEvent) => void): Disposable;
+  start(emit: (e: RawEdit) => void): Disposable;   // EditTracker turns RawEdit into EditEvent
 }
 ```
 New agents (Copilot, Cursor, etc.) plug in here.
