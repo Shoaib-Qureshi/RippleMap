@@ -13,7 +13,7 @@ describe('GraphDiffer', () => {
     );
     const after = b.build();
     const d = diffGraphs(before, after);
-    expect(d.addedEdges).toEqual([
+    expect(d.addedEdges.filter((e) => e.endsWith('::imports'))).toEqual([
       'src/index.ts::file::src/index.ts->src/components/App.tsx::file::src/components/App.tsx::imports',
     ]);
     expect(d.removedEdges.filter((e) => e.endsWith('::imports'))).toEqual([
@@ -21,7 +21,7 @@ describe('GraphDiffer', () => {
     ]);
     expect(d.modifiedNodes).toContain('src/index.ts::file::src/index.ts');
     expect(d.summary).toMatch(/^Adds .*1 import.*; removes .*1 import/);
-    expect(shortStats(d)).toMatch(/\+1 edge/);
+    expect(shortStats(d)).toBe('−1 node · +2 edges · −3 edges'); // main() and its 2 calls removed
   });
 
   it('reports no change for identical graphs', async () => {

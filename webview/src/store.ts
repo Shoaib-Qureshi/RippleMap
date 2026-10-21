@@ -15,6 +15,7 @@ export interface State {
   progress: { done: number; total: number } | null;
   level: Level;
   mode: Mode;
+  focus: 'changed' | 'all';
   layout: LayoutMode;
   search: string;
   folder: string;
@@ -39,6 +40,7 @@ export const useStore = create<State>((set, get) => ({
   progress: null,
   level: 'files',
   mode: 'diff',
+  focus: 'changed',
   layout: 'LR',
   search: '',
   folder: '',

@@ -181,6 +181,49 @@ test('an edit adding an import shows an added edge in the diff within 500 ms (M4
   );
 });
 
+test('editing one function marks it modified, lists it in the feed, and shows its new call (M5)', async () => {
+  const { graph, indexed, tracker } = await api();
+  await indexed;
+  const uri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0]!.uri, 'main.ts');
+  const doc = await vscode.workspace.openTextDocument(uri);
+  const original = doc.getText();
+  try {
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(
+      uri,
+      new vscode.Range(3, 0, 3, doc.lineAt(3).text.length),
+      '  return hello() + helperLocal();',
+    );
+    edit.insert(
+      uri,
+      new vscode.Position(doc.lineCount - 1, 0),
+      '\nfunction helperLocal() {\n  return 1;\n}\n',
+    );
+    await vscode.workspace.applyEdit(edit);
+    await doc.save();
+    const d = await waitFor(
+      () => {
+        const v = graph.view().diff;
+        return v.modifiedNodes.includes('main.ts::function::run') ? v : undefined;
+      },
+      'modified run()',
+      3000,
+    );
+    assert.ok(d.addedNodes.includes('main.ts::function::helperLocal'));
+    assert.ok(d.addedEdges.includes('main.ts::function::run->main.ts::function::helperLocal::calls'));
+    const e = await waitFor(
+      () => tracker.edits.find((x) => x.file === 'main.ts' && x.symbols?.length),
+      'symbols',
+    );
+    assert.ok(e.symbols!.includes('run'), e.symbols!.join(','));
+  } finally {
+    const restore = new vscode.WorkspaceEdit();
+    restore.replace(uri, new vscode.Range(0, 0, doc.lineCount, 0), original);
+    await vscode.workspace.applyEdit(restore);
+    await doc.save();
+  }
+});
+
 test('webview renders the graph without runtime errors', async () => {
   const { webviewErrors } = await api();
   await vscode.commands.executeCommand('flowlens.openPanel');

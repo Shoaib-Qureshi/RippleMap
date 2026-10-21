@@ -168,6 +168,7 @@ New agents (Copilot, Cursor, etc.) plug in here.
 - `ParserService` does a full re-parse per change (no tree cache / `tree.edit()`): a single file parses well inside the 300 ms budget. Trees are `delete()`d right after extraction (WASM memory).
 - `GraphBuilder` runs extractors per file into **`FileFacts`** (nodes with stable ids + content hash, unresolved `imports`, name-based `refs`, and direct `edges`). `resolve()` (graph/resolve.ts) turns *all* facts into the workspace graph in one pass; on edit only the changed file is re-extracted, then resolution reruns (cheap: no parsing). `GraphService` debounces rebuilds (30 ms) and emits `update`.
 - Cross-file resolution: import resolution (relative paths, tsconfig paths basic, PHP `require/include`, `use`), then symbol-name matching with confidence levels.
+- `calls.ts` (runs last): definitions (function / method / class / React component = capitalised function containing JSX) with ids `file::kind::qualified.name`, and refs: calls, `new X()`, `extends`, JSX `<X/>` renders. `this.`/`$this->`/`self.` receivers prefer methods of the same class. Classes hash only their header, so editing a method marks just that method modified. Framework extractors that run earlier can add closure nodes with `meta.anchor = startIndex`; calls inside that closure are attributed to it.
 - Ref resolution confidence: same file / same class / imported file → high; unique name elsewhere → medium (`obj.x()` → low); 2–3 candidates → low each; more → dropped.
 - Initial index (`Indexer.ts`): chunked async loop (25 files, `setImmediate` yields) with window progress; excludes are folder names from `flowlens.excludeFolders` (not `.gitignore`). It also seeds EditTracker baselines.
 
@@ -212,7 +213,8 @@ webview → host: ready, openFile{file,line}, selectEdit{id}, setMode{current|af
 
 - Debounce rebuilds; coalesce multiple rapid edits to one file.
 - Throttle webview updates to ~10 Hz; send diffs rather than full graphs after the first load.
-- Cap rendered nodes; default view = changed nodes + 1-hop neighborhood.
+- Cap rendered nodes (`flowlens.maxNodes`, changed nodes kept first); default scope = changed nodes + 1-hop neighborhood ("All nodes" toggle).
+- After each rebuild, the edits behind the newest snapshot get `symbols` (nodes overlapping their changed lines + removed nodes) for the Edit Feed tooltip.
 
 ## 11. Testing
 

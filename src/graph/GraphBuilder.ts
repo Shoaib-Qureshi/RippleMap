@@ -1,13 +1,10 @@
-import { createHash } from 'node:crypto';
 import type { ParserService } from '../parse/ParserService';
 import { langFor } from '../parse/ParserService';
 import { basename } from '../util/paths';
 import type { Extractor } from './extractors/Extractor';
+import { hashText } from './hash';
 import { resolve } from './resolve';
 import { fileNodeId, type FileFacts, type Graph } from './types';
-
-export const hashText = (s: string) =>
-  createHash('sha1').update(s.replace(/\r\n?/g, '\n')).digest('hex').slice(0, 12);
 
 /** Owns per-file facts; `build()` turns them into the workspace graph. Pure (no vscode). */
 export class GraphBuilder {

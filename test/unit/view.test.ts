@@ -25,6 +25,7 @@ const g: GraphPayload = {
 const opts: ViewOptions = {
   level: 'files',
   mode: 'after',
+  focus: 'all',
   search: '',
   folder: '',
   hiddenKinds: new Set(),
@@ -43,6 +44,22 @@ describe('visibleGraph', () => {
     expect(ids('current')).toEqual(['ab', 'ar']);
     expect(ids('after')).toEqual(['ab', 'ac']);
     expect(ids('diff')).toEqual(['ab', 'ac', 'ar']);
+  });
+  it('focus=changed keeps changed nodes and their 1-hop neighbors', () => {
+    const g2 = {
+      ...g,
+      nodes: [
+        ...g.nodes,
+        { id: 'z', kind: 'file' as const, label: 'z.ts', file: 'z.ts', status: 'unchanged' as const },
+      ],
+    };
+    expect(visibleGraph(g2, { ...opts, mode: 'diff', focus: 'changed' }).nodes.map((n) => n.id)).toEqual([
+      'a',
+      'b',
+      'c',
+      'r',
+    ]);
+    expect(visibleGraph(g2, { ...opts, mode: 'diff', focus: 'all' }).nodes).toHaveLength(5);
   });
   it('caps nodes, keeping changed then most connected', () => {
     const v = visibleGraph(g, { ...opts, mode: 'diff', maxNodes: 2 });

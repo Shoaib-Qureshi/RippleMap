@@ -35,3 +35,11 @@ export function edgeList(g: Graph, kinds?: string[]): string[] {
     .map((e) => `${short(e.from)} -> ${short(e.to)} (${e.kind})`)
     .sort();
 }
+
+/** "kind:qname" for every non-file node, sorted. */
+export function symbolList(g: Graph): string[] {
+  return [...g.nodes.values()]
+    .filter((n) => n.kind !== 'file')
+    .map((n) => `${n.kind}:${String(n.meta?.qname ?? n.label)}`)
+    .sort();
+}

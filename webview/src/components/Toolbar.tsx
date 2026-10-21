@@ -5,7 +5,8 @@ import { KIND_ICON } from './FlowNode';
 const FUNCTION_KINDS: NodeKind[] = ['function', 'method', 'class', 'component', 'hook', 'route', 'shortcode'];
 
 export function Toolbar() {
-  const { level, mode, layout, search, folder, hiddenKinds, graph, progress, set, toggleKind } = useStore();
+  const { level, mode, focus, layout, search, folder, hiddenKinds, graph, progress, set, toggleKind } =
+    useStore();
   return (
     <header className="fl-toolbar" role="toolbar">
       <span className="fl-segmented" role="radiogroup" aria-label="Graph mode">
@@ -35,6 +36,14 @@ export function Toolbar() {
       >
         <option value="files">Files</option>
         <option value="functions">Functions</option>
+      </select>
+      <select
+        aria-label="Scope"
+        value={focus}
+        onChange={(e) => set({ focus: e.target.value as typeof focus })}
+      >
+        <option value="changed">Changed + neighbors</option>
+        <option value="all">All nodes</option>
       </select>
       <select
         aria-label="Layout"

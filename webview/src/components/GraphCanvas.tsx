@@ -9,10 +9,20 @@ import { ClusterNode, FlowNode, type ClusterData, type FlowNodeData } from './Fl
 const nodeTypes = { flow: FlowNode, cluster: ClusterNode };
 
 export function GraphCanvas() {
-  const { graph, level, mode, layout, search, folder, hiddenKinds, init, selectedId, set } = useStore();
+  const { graph, level, mode, focus, layout, search, folder, hiddenKinds, init, selectedId, set } =
+    useStore();
   const visible = useMemo(
-    () => visibleGraph(graph, { level, mode, search, folder, hiddenKinds, maxNodes: init?.maxNodes ?? 1500 }),
-    [graph, level, mode, search, folder, hiddenKinds, init],
+    () =>
+      visibleGraph(graph, {
+        level,
+        mode,
+        focus,
+        search,
+        folder,
+        hiddenKinds,
+        maxNodes: init?.maxNodes ?? 1500,
+      }),
+    [graph, level, mode, focus, search, folder, hiddenKinds, init],
   );
 
   const { nodes, edges } = useMemo(() => {
@@ -66,6 +76,13 @@ export function GraphCanvas() {
         No graph yet. FlowLens indexes JS/TS, PHP and Python files in this workspace.
       </div>
     );
+  if (!visible.nodes.length)
+    return (
+      <div className="fl-empty">
+        Nothing to show at this level with the current filters
+        {level === 'functions' ? ' (no functions, classes or hooks found)' : ''}.
+      </div>
+    );
 
   return (
     <div className="fl-canvas">
@@ -76,6 +93,8 @@ export function GraphCanvas() {
         </div>
       )}
       <ReactFlow
+        // Remount (and re-fit the viewport) when the view changes shape; live graph updates keep the viewport.
+        key={`${level}|${layout}|${focus}|${mode}`}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}

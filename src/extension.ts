@@ -11,6 +11,7 @@ import { GraphService } from './graph/GraphService';
 import { indexWorkspace } from './graph/Indexer';
 import { shortStats } from './graph/GraphDiffer';
 import { toPayload } from './graph/payload';
+import { touchedSymbols } from './graph/symbols';
 import { ParserService } from './parse/ParserService';
 import { Decorations } from './ui/Decorations';
 import { registerEditDiffView } from './ui/EditDiffView';
@@ -68,6 +69,18 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   graph.on('update', () => {
     const view = graph.view();
     statusBar.setGraphText(shortStats(view.diff));
+    // Fill in "symbols touched" for the edits behind the newest snapshot (shown in the feed).
+    if (graph.selected === null && view.step) {
+      let changed = false;
+      for (const id of view.step.editIds) {
+        const e = tracker.get(id);
+        if (e && !e.symbols) {
+          e.symbols = touchedSymbols(e, view);
+          changed = true;
+        }
+      }
+      if (changed) tracker.emit('change');
+    }
     panel.post({ type: 'graph:update', graph: toPayload(view, graph.snapshots.list) });
   });
 

@@ -7,6 +7,8 @@ export type Mode = 'current' | 'after' | 'diff';
 export interface ViewOptions {
   level: Level;
   mode: Mode;
+  /** 'changed': only changed nodes + 1-hop neighbors (when anything changed at this level). */
+  focus: 'changed' | 'all';
   search: string;
   folder: string;
   hiddenKinds: ReadonlySet<NodeKind>;
@@ -41,6 +43,19 @@ export function visibleGraph(g: GraphPayload, o: ViewOptions): VisibleGraph {
   );
   const kinds = LEVEL_EDGES[o.level];
   const candidateEdges = g.edges.filter((e) => kinds.has(e.kind) && inMode(o.mode, e.status));
+
+  if (o.focus === 'changed') {
+    const changed = new Set(nodes.filter((n) => n.status !== 'unchanged').map((n) => n.id));
+    for (const e of candidateEdges) if (e.status !== 'unchanged') changed.add(e.from).add(e.to);
+    if (changed.size) {
+      const keep = new Set(changed);
+      for (const e of candidateEdges) {
+        if (changed.has(e.from)) keep.add(e.to);
+        if (changed.has(e.to)) keep.add(e.from);
+      }
+      nodes = nodes.filter((n) => keep.has(n.id));
+    }
+  }
 
   let hidden = 0;
   if (nodes.length > o.maxNodes) {
