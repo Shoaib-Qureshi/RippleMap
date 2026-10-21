@@ -13,6 +13,10 @@ export interface ViewOptions {
   folder: string;
   hiddenKinds: ReadonlySet<NodeKind>;
   maxNodes: number;
+  /** When set: show only this symbol's flow (overrides level, scope and filters). */
+  flowRoot?: string | null;
+  /** Downstream depth for the flow; 0 = unlimited. */
+  flowDepth?: number;
 }
 
 export interface VisibleGraph {
@@ -31,6 +35,10 @@ const inMode = (mode: Mode, status: PayloadNode['status']) =>
   mode === 'diff' || (mode === 'current' ? status !== 'added' : status !== 'removed');
 
 export function visibleGraph(g: GraphPayload, o: ViewOptions): VisibleGraph {
+  if (o.flowRoot) {
+    const f = flowGraph(g, o.flowRoot, o.flowDepth ?? 3, o.mode);
+    if (f) return f;
+  }
   const q = o.search.trim().toLowerCase();
   const folder = o.folder.trim().replace(/\\/g, '/').replace(/^\/+/, '');
   let nodes = g.nodes.filter(
@@ -71,6 +79,44 @@ export function visibleGraph(g: GraphPayload, o: ViewOptions): VisibleGraph {
   }
   const ids = new Set(nodes.map((n) => n.id));
   return { nodes, edges: candidateEdges.filter((e) => ids.has(e.from) && ids.has(e.to)), hidden };
+}
+
+/**
+ * A symbol's flow: everything it reaches (calls / registers / renders, or imports for a file) up to `depth`
+ * hops (0 = unlimited), plus its direct callers for context. Undefined if the root is not in the graph.
+ */
+export function flowGraph(
+  g: GraphPayload,
+  rootId: string,
+  depth: number,
+  mode: Mode,
+): VisibleGraph | undefined {
+  const root = g.nodes.find((n) => n.id === rootId && inMode(mode, n.status));
+  if (!root) return undefined;
+  const kinds = LEVEL_EDGES[root.kind === 'file' ? 'files' : 'functions'];
+  const edges = g.edges.filter((e) => kinds.has(e.kind) && inMode(mode, e.status));
+  const out = new Map<string, string[]>();
+  for (const e of edges) {
+    let l = out.get(e.from);
+    if (!l) out.set(e.from, (l = []));
+    l.push(e.to);
+  }
+  const keep = new Set([root.id]);
+  let frontier = [root.id];
+  for (let d = 0; frontier.length && (depth === 0 || d < depth); d++) {
+    const next: string[] = [];
+    for (const id of frontier)
+      for (const to of out.get(id) ?? [])
+        if (!keep.has(to)) {
+          keep.add(to);
+          next.push(to);
+        }
+    frontier = next;
+  }
+  for (const e of edges) if (e.to === root.id) keep.add(e.from); // direct callers
+  const nodes = g.nodes.filter((n) => keep.has(n.id) && inMode(mode, n.status));
+  const ids = new Set(nodes.map((n) => n.id));
+  return { nodes, edges: edges.filter((e) => ids.has(e.from) && ids.has(e.to)), hidden: 0 };
 }
 
 export const folderOf = (file: string) => (file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : '.');

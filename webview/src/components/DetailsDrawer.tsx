@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { vscode } from '../vscode';
 
 export function DetailsDrawer() {
-  const { graph, selectedId, set } = useStore();
+  const { graph, selectedId, flowRoot, set, showFlow } = useStore();
   const node = graph.nodes.find((n) => n.id === selectedId);
   if (!node) return null;
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
@@ -48,7 +48,17 @@ export function DetailsDrawer() {
         {node.kind} · {node.file}
         {node.range ? `:${node.range.startLine}` : ''}
       </p>
-      <button onClick={() => open(node)}>Open in editor</button>
+      <div className="fl-actions">
+        <button onClick={() => open(node)}>Open in editor</button>
+        {flowRoot !== node.id && (
+          <button
+            onClick={() => showFlow(node.id)}
+            title="Show only what this calls (and its direct callers)"
+          >
+            Show flow
+          </button>
+        )}
+      </div>
       {list(node.kind === 'file' ? 'Imported by' : 'Callers / incoming', incoming, 'from')}
       {list(node.kind === 'file' ? 'Imports' : 'Callees / outgoing', outgoing, 'to')}
     </aside>

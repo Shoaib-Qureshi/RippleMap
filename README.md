@@ -15,6 +15,7 @@ Everything runs locally. No telemetry, no network calls, no code leaves your mac
 | **Edit Feed** (Activity Bar → FlowLens) | Every edit with file, `+/−` lines, changed ranges, touched functions, grouped by agent session. Click to open the diff. |
 | **Gutter highlights** | Recently edited lines are highlighted and fade out over time. |
 | **Graph panel** (`FlowLens: Open Panel`) | Files or Functions level; **Current / After / Diff** modes; scope "Changed + neighbors" or "All"; left-right, top-down or clustered-by-folder layout; search and folder filter. Click a node to jump to the code. |
+| **Show flow of…** | Searchable dropdown of every function, method, class, hook and route. Pick one to see only its flow: what it calls (depth 1–5 or all) plus its direct callers. Also via **Show flow** in the node details. |
 | **Open anywhere** | `↗ Browser` opens the live graph in your default browser (Chrome etc.) on `127.0.0.1` with a secret token; `⧉ New window` pops it into its own VS Code window. Clicking a node in the browser still jumps to the code in VS Code. |
 | **Pending preview** | Claude Code's proposed `Edit`/`Write` is applied in memory; the diff appears while the agent waits, and is dropped if the edit is rejected or fails. |
 | **Framework flows** | WordPress `add_action`/`add_filter`/`do_action`, shortcodes, REST routes (WooCommerce hooks flagged); Express and Next.js route handlers; Flask/FastAPI routes. |

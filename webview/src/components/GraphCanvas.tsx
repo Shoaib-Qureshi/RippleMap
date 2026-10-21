@@ -10,8 +10,21 @@ import { ClusterNode, FlowNode, type ClusterData, type FlowNodeData } from './Fl
 const nodeTypes = { flow: FlowNode, cluster: ClusterNode };
 
 export function GraphCanvas() {
-  const { graph, level, mode, focus, layout, search, folder, hiddenKinds, init, selectedId, set } =
-    useStore();
+  const {
+    graph,
+    level,
+    mode,
+    focus,
+    layout,
+    search,
+    folder,
+    hiddenKinds,
+    init,
+    selectedId,
+    flowRoot,
+    flowDepth,
+    set,
+  } = useStore();
   const visible = useMemo(
     () =>
       visibleGraph(graph, {
@@ -22,8 +35,10 @@ export function GraphCanvas() {
         folder,
         hiddenKinds,
         maxNodes: init?.maxNodes ?? 1500,
+        flowRoot,
+        flowDepth,
       }),
-    [graph, level, mode, focus, search, folder, hiddenKinds, init],
+    [graph, level, mode, focus, search, folder, hiddenKinds, init, flowRoot, flowDepth],
   );
 
   const positioned = useMemo(() => layoutGraph(visible.nodes, visible.edges, layout), [visible, layout]);
@@ -60,7 +75,7 @@ export function GraphCanvas() {
         position: positions.get(n.id)!,
         data: { node: n, vertical, status: colored ? n.status : 'unchanged' },
         selected: n.id === selectedId,
-        className: `${cls(n.status)}${warned.has(n.id) ? ' warn' : ''}`,
+        className: `${cls(n.status)}${warned.has(n.id) ? ' warn' : ''}${n.id === flowRoot ? ' flow-root' : ''}`,
       })),
     ];
     const edges: Edge[] = visible.edges.map((e): Edge => ({
@@ -81,7 +96,7 @@ export function GraphCanvas() {
       },
     }));
     return { nodes, edges };
-  }, [visible, positioned, layout, mode, selectedId, graph.insights]);
+  }, [visible, positioned, layout, mode, selectedId, graph.insights, flowRoot]);
 
   if (!graph.nodes.length)
     return (
@@ -107,7 +122,7 @@ export function GraphCanvas() {
       )}
       <ReactFlow
         // Remount (and re-fit the viewport) when the view changes shape; live graph updates keep the viewport.
-        key={`${level}|${layout}|${focus}|${mode}`}
+        key={`${level}|${layout}|${focus}|${mode}|${flowRoot}|${flowDepth}`}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}

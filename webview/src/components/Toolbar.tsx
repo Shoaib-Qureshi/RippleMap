@@ -1,6 +1,7 @@
 import type { NodeKind } from '../../../src/shared/messages';
 import { useStore } from '../store';
 import { inBrowser, vscode } from '../vscode';
+import { FlowPicker } from './FlowPicker';
 import { KIND_ICON } from './FlowNode';
 
 const FUNCTION_KINDS: NodeKind[] = ['function', 'method', 'class', 'component', 'hook', 'route', 'shortcode'];
@@ -30,10 +31,11 @@ export function Toolbar() {
           </button>
         ))}
       </span>
+      <FlowPicker />
       <select
         aria-label="Graph level"
         value={level}
-        onChange={(e) => set({ level: e.target.value as typeof level })}
+        onChange={(e) => set({ level: e.target.value as typeof level, flowRoot: null })}
       >
         <option value="files">Files</option>
         <option value="functions">Functions</option>

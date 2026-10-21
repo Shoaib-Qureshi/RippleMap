@@ -21,6 +21,10 @@ export interface State {
   folder: string;
   hiddenKinds: Set<NodeKind>;
   selectedId: string | null;
+  /** Symbol whose flow is shown (null = normal graph view). */
+  flowRoot: string | null;
+  flowDepth: number;
+  showFlow(id: string | null): void;
   set(patch: Partial<State>): void;
   toggleKind(k: NodeKind): void;
   receive(msg: HostToWebview): void;
@@ -47,6 +51,9 @@ export const useStore = create<State>((set, get) => ({
   folder: '',
   hiddenKinds: new Set(),
   selectedId: null,
+  flowRoot: null,
+  flowDepth: 3,
+  showFlow: (id) => set(id ? { flowRoot: id, selectedId: id } : { flowRoot: null }),
   set: (patch) => set(patch),
   toggleKind: (k) => {
     const s = new Set(get().hiddenKinds);

@@ -333,3 +333,20 @@ button:hover {
   display: inline-flex;
   gap: 4px;
 }
+.fl-flow {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.fl-flow input {
+  width: 220px;
+}
+.react-flow__node.flow-root .fl-node {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 3px;
+}
+.fl-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

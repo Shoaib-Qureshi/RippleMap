@@ -62,6 +62,41 @@ describe('visibleGraph', () => {
     ]);
     expect(visibleGraph(g2, { ...opts, mode: 'diff', focus: 'all' }).nodes).toHaveLength(5);
   });
+  it('flow view: downstream to depth + direct callers, ignoring level and filters', () => {
+    const chain: GraphPayload = {
+      ...g,
+      nodes: ['caller', 'root', 'b', 'c', 'd', 'other'].map((id) => ({
+        id,
+        kind: 'function' as const,
+        label: id,
+        file: 'x.ts',
+        status: 'unchanged' as const,
+      })),
+      edges: [
+        ['caller', 'root'],
+        ['root', 'b'],
+        ['b', 'c'],
+        ['c', 'd'],
+        ['other', 'b'],
+      ].map(([from, to]) => ({
+        id: `${from}-${to}`,
+        from: from!,
+        to: to!,
+        kind: 'calls' as const,
+        confidence: 'high' as const,
+        status: 'unchanged' as const,
+      })),
+    };
+    const ids = (flowDepth: number) =>
+      visibleGraph(chain, { ...opts, level: 'files', search: 'zzz', flowRoot: 'root', flowDepth }).nodes.map(
+        (n) => n.id,
+      );
+    expect(ids(1)).toEqual(['caller', 'root', 'b']);
+    expect(ids(2)).toEqual(['caller', 'root', 'b', 'c']);
+    expect(ids(0)).toEqual(['caller', 'root', 'b', 'c', 'd']);
+    // Unknown root falls back to the normal view.
+    expect(visibleGraph(chain, { ...opts, level: 'functions', flowRoot: 'gone' }).nodes).toHaveLength(6);
+  });
   it('caps nodes, keeping changed then most connected', () => {
     const v = visibleGraph(g, { ...opts, mode: 'diff', maxNodes: 2 });
     expect(v.nodes.map((n) => n.id).sort()).toEqual(['a', 'c']);
