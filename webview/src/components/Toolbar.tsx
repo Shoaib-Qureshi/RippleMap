@@ -1,5 +1,6 @@
 import type { NodeKind } from '../../../src/shared/messages';
 import { useStore } from '../store';
+import { inBrowser, vscode } from '../vscode';
 import { KIND_ICON } from './FlowNode';
 
 const FUNCTION_KINDS: NodeKind[] = ['function', 'method', 'class', 'component', 'hook', 'route', 'shortcode'];
@@ -78,6 +79,22 @@ export function Toolbar() {
         </span>
       )}
       <span className="fl-spacer" />
+      {!inBrowser && (
+        <span className="fl-popout">
+          <button
+            title="Open the graph in a separate VS Code window"
+            onClick={() => vscode.postMessage({ type: 'popout', target: 'window' })}
+          >
+            ⧉ New window
+          </button>
+          <button
+            title="Open the graph in your web browser (live, local only)"
+            onClick={() => vscode.postMessage({ type: 'popout', target: 'browser' })}
+          >
+            ↗ Browser
+          </button>
+        </span>
+      )}
       <span className="fl-muted">
         {progress
           ? `Indexing ${progress.done}/${progress.total}…`

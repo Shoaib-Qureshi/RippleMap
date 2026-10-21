@@ -41,6 +41,18 @@
         "icon": "$(graph)"
       },
       {
+        "command": "flowlens.openInBrowser",
+        "title": "Open Graph in Browser",
+        "category": "FlowLens",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "flowlens.openInNewWindow",
+        "title": "Open Graph in New Window",
+        "category": "FlowLens",
+        "icon": "$(multiple-windows)"
+      },
+      {
         "command": "flowlens.clearHistory",
         "title": "Clear Edit History",
         "category": "FlowLens",
@@ -95,6 +107,16 @@
       "view/title": [
         {
           "command": "flowlens.openPanel",
+          "when": "view == flowlens.editFeed",
+          "group": "navigation"
+        },
+        {
+          "command": "flowlens.openInBrowser",
+          "when": "view == flowlens.editFeed",
+          "group": "navigation"
+        },
+        {
+          "command": "flowlens.openInNewWindow",
           "when": "view == flowlens.editFeed",
           "group": "navigation"
         },

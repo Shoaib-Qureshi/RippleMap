@@ -50,7 +50,9 @@ export type WebviewToHost =
   /** Inspect snapshot `index` (null = follow latest). */
   | { type: 'scrub'; index: number | null }
   /** png/svg: data URL; mermaid: text. */
-  | { type: 'export'; format: 'png' | 'svg' | 'mermaid'; data: string };
+  | { type: 'export'; format: 'png' | 'svg' | 'mermaid'; data: string }
+  /** Open the graph in a browser tab or a separate VS Code window. */
+  | { type: 'popout'; target: 'browser' | 'window' };
 
 const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'ready',
@@ -58,6 +60,7 @@ const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'error',
   'scrub',
   'export',
+  'popout',
 ]);
 
 /** Validates messages arriving from the webview before the host acts on them. */
@@ -68,6 +71,7 @@ export function isWebviewMessage(m: unknown): m is WebviewToHost {
   if (o.type === 'openFile')
     return typeof o.file === 'string' && (o.line === undefined || typeof o.line === 'number');
   if (o.type === 'error') return typeof o.message === 'string';
+  if (o.type === 'popout') return o.target === 'browser' || o.target === 'window';
   if (o.type === 'export')
     return ['png', 'svg', 'mermaid'].includes(o.format as string) && typeof o.data === 'string';
   if (o.type === 'scrub')

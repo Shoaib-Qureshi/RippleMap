@@ -5,6 +5,14 @@ import { config } from '../util/workspace';
 
 const THROTTLE_MS = 100; // ~10 Hz max for repeated message types
 
+/** First message every view (panel or browser tab) receives. */
+export const initMessage = (ctx: vscode.ExtensionContext): HostToWebview => ({
+  type: 'init',
+  version: String(ctx.extension.packageJSON.version),
+  workspaceName: vscode.workspace.name ?? null,
+  maxNodes: config().maxNodes,
+});
+
 /** Hosts the single FlowLens webview panel. The host owns state; the webview only renders it. */
 export class PanelProvider implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
@@ -40,17 +48,17 @@ export class PanelProvider implements vscode.Disposable {
     panel.webview.onDidReceiveMessage((m: unknown) => {
       if (!isWebviewMessage(m)) return;
       if (m.type !== 'ready') return this.onMessage(m);
-      void panel.webview.postMessage({
-        type: 'init',
-        version: String(this.ctx.extension.packageJSON.version),
-        workspaceName: vscode.workspace.name ?? null,
-        maxNodes: config().maxNodes,
-      } satisfies HostToWebview);
+      void panel.webview.postMessage(initMessage(this.ctx));
       for (const msg of this.latest.values()) void panel.webview.postMessage(msg);
       this.readyWaiters.splice(0).forEach((resolve) => resolve());
     });
     panel.onDidDispose(() => (this.panel = undefined));
     return new Promise((resolve) => this.readyWaiters.push(resolve));
+  }
+
+  /** Focuses the panel (so editor commands like "move to new window" act on it). */
+  reveal(): void {
+    this.panel?.reveal(undefined, false);
   }
 
   post(msg: HostToWebview): void {

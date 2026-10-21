@@ -208,6 +208,11 @@ webview → host: ready, openFile{file,line?}, scrub{index|null}, error{message}
 ```
 `GraphPayload` = before+after union with per-element `status`, summary, counts, step + steps (scrubber), pending, insights. Mode (Current/After/Diff), level, scope, layout and filters are webview-local state. Theme follows VS Code CSS variables automatically, so there is no theme message.
 
+### Views: panel, new window, browser
+The same webview bundle runs in three places; the host fans every message out to all of them (`post()` in extension.ts).
+- VS Code panel (`PanelProvider`); "new window" = open the panel, then `workbench.action.moveEditorToNewWindow`.
+- Browser tab (`BrowserBridge`): HTTP server on `127.0.0.1`, random port, 48-hex-char token required for the page, `/events` (SSE, host → page) and `/msg` (POST, page → host, validated with `isWebviewMessage`, 30 MB cap). Only `main.js`/`main.css` are served without the token (no data in them). Host header must be `127.0.0.1:<port>` (DNS-rebinding guard). A tiny inline shim provides `acquireVsCodeApi()` and re-dispatches SSE messages as window `message` events, so the React app is unchanged; it re-sends `ready` on every (re)connect. Theme: built-in light/dark fallbacks for the `--vscode-*` variables. Started lazily on first use.
+
 ### Export
 PNG/SVG/Mermaid of exactly what is visible. SVG is generated from our own layout (`webview/src/svgExport.ts`: boxes, clusters, bezier edges, theme colors resolved at export time); PNG rasterizes that SVG on a canvas at 2×. (DOM-screenshot libraries dropped React Flow's edge paths and need CSP exceptions.) The webview posts `export{format,data}`; the host validates the data URL, caps size (25 MB) and writes via a save dialog.
 

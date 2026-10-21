@@ -17,8 +17,10 @@ import { ParserService } from './parse/ParserService';
 import { Decorations } from './ui/Decorations';
 import { registerEditDiffView } from './ui/EditDiffView';
 import { EditFeedProvider } from './ui/EditFeedProvider';
-import { PanelProvider } from './ui/PanelProvider';
+import { BrowserBridge } from './ui/BrowserBridge';
+import { initMessage, PanelProvider } from './ui/PanelProvider';
 import { StatusBar } from './ui/StatusBar';
+import type { HostToWebview, WebviewToHost } from './shared/messages';
 import { config, readText, toUri, trackedRel } from './util/workspace';
 
 export interface FlowLensApi {
@@ -53,8 +55,12 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
 
   const log = vscode.window.createOutputChannel('FlowLens', { log: true });
   const webviewErrors: string[] = [];
-  const panel = new PanelProvider(ctx, (m) => {
-    if (m.type === 'error') {
+  const onViewMessage = (m: Exclude<WebviewToHost, { type: 'ready' }>) => {
+    if (m.type === 'popout') {
+      void vscode.commands.executeCommand(
+        m.target === 'browser' ? 'flowlens.openInBrowser' : 'flowlens.openInNewWindow',
+      );
+    } else if (m.type === 'error') {
       webviewErrors.push(m.message);
       log.error(`webview: ${m.message}`);
     } else if (m.type === 'export') {
@@ -72,7 +78,18 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
         selection: new vscode.Range(line, 0, line, 0),
       });
     }
+  };
+  const panel = new PanelProvider(ctx, onViewMessage);
+  const browser = new BrowserBridge({
+    webviewDir: vscode.Uri.joinPath(ctx.extensionUri, 'dist', 'webview').fsPath,
+    init: () => initMessage(ctx),
+    onMessage: onViewMessage,
   });
+  /** Every view (VS Code panel and any browser tabs) gets the same messages. */
+  const post = (m: HostToWebview) => {
+    panel.post(m);
+    browser.post(m);
+  };
   graph.on('update', () => {
     const view = graph.view();
     statusBar.setGraphText(shortStats(view.diff));
@@ -88,7 +105,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       }
       if (changed) tracker.emit('change');
     }
-    panel.post({ type: 'graph:update', graph: toPayload(view, graph.snapshots.list) });
+    post({ type: 'graph:update', graph: toPayload(view, graph.snapshots.list) });
   });
 
   tracker.on('proposed', (e) => {
@@ -115,6 +132,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   ctx.subscriptions.push(
     log,
     panel,
+    browser,
     graph,
     statusBar,
     new Decorations(tracker),
@@ -126,13 +144,26 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     registerHookCommands(ctx),
     vscode.workspace.onDidOpenTextDocument(seed),
     vscode.commands.registerCommand('flowlens.openPanel', () => panel.open()),
+    vscode.commands.registerCommand('flowlens.openInBrowser', async () => {
+      const url = await browser.url();
+      const opened = await vscode.env.openExternal(vscode.Uri.parse(url));
+      if (!opened) {
+        await vscode.env.clipboard.writeText(url);
+        void vscode.window.showInformationMessage('FlowLens: browser URL copied to the clipboard.');
+      }
+    }),
+    vscode.commands.registerCommand('flowlens.openInNewWindow', async () => {
+      await panel.open();
+      panel.reveal();
+      await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
+    }),
     vscode.commands.registerCommand('flowlens.clearHistory', () => tracker.clear()),
     vscode.commands.registerCommand('flowlens.reindex', () => runIndex('Re-index')),
   );
 
   const runIndex = (label = 'Initial index') =>
     indexWorkspace(graph, tracker, label, (done, total) =>
-      panel.post({ type: 'index:progress', done, total }),
+      post({ type: 'index:progress', done, total }),
     ).then(
       () => undefined,
       (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: indexing failed: ${String(e)}`),

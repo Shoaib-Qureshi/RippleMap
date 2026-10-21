@@ -329,3 +329,7 @@ button:hover {
   font-size: 0.9em;
   opacity: 0.85;
 }
+.fl-popout {
+  display: inline-flex;
+  gap: 4px;
+}
