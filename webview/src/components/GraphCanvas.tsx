@@ -9,15 +9,20 @@ import { ClusterNode, FlowNode, type ClusterData, type FlowNodeData } from './Fl
 const nodeTypes = { flow: FlowNode, cluster: ClusterNode };
 
 export function GraphCanvas() {
-  const { graph, level, layout, search, folder, hiddenKinds, init, selectedId, set } = useStore();
+  const { graph, level, mode, layout, search, folder, hiddenKinds, init, selectedId, set } = useStore();
   const visible = useMemo(
-    () => visibleGraph(graph, { level, search, folder, hiddenKinds, maxNodes: init?.maxNodes ?? 1500 }),
-    [graph, level, search, folder, hiddenKinds, init],
+    () => visibleGraph(graph, { level, mode, search, folder, hiddenKinds, maxNodes: init?.maxNodes ?? 1500 }),
+    [graph, level, mode, search, folder, hiddenKinds, init],
   );
 
   const { nodes, edges } = useMemo(() => {
     const { positions, clusters } = layoutGraph(visible.nodes, visible.edges, layout);
     const vertical = layout === 'TB';
+    // Diff colors only in Diff mode; unchanged elements are dimmed when something changed.
+    const colored = mode === 'diff';
+    const anyChange = colored && visible.nodes.some((n) => n.status !== 'unchanged');
+    const cls = (status: string) =>
+      colored ? `status-${status}${anyChange && status === 'unchanged' ? ' dimmed' : ''}` : '';
     const nodes: Node[] = [
       ...clusters.map((c): Node<ClusterData> => ({
         id: c.id,
@@ -34,20 +39,26 @@ export function GraphCanvas() {
         id: n.id,
         type: 'flow',
         position: positions.get(n.id)!,
-        data: { node: n, vertical },
+        data: { node: n, vertical, status: colored ? n.status : 'unchanged' },
         selected: n.id === selectedId,
+        className: cls(n.status),
       })),
     ];
-    const edges: Edge[] = visible.edges.map((e) => ({
+    const edges: Edge[] = visible.edges.map((e): Edge => ({
       id: e.id,
       source: e.from,
       target: e.to,
-      className: `fl-edge kind-${e.kind} conf-${e.confidence}`,
+      className: `fl-edge kind-${e.kind} conf-${e.confidence} ${cls(e.status)}`,
       animated: e.kind === 'registers',
-      markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 16,
+        height: 16,
+        color: colored && e.status !== 'unchanged' ? `var(--fl-${e.status})` : undefined,
+      },
     }));
     return { nodes, edges };
-  }, [visible, layout, level, selectedId]);
+  }, [visible, layout, mode, selectedId]);
 
   if (!graph.nodes.length)
     return (

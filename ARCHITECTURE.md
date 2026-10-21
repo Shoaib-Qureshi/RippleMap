@@ -124,7 +124,7 @@ interface EditEvent {
 }
 // Lives in src/capture/EditEvent.ts (with RawEdit, what adapters emit).
 
-interface Snapshot { id: string; ts: number; editIds: string[]; graph: SerializedGraph; }
+interface Snapshot { id: string; ts: number; label: string; editIds: string[]; graph: Graph; }
 
 interface GraphDiff {
   addedNodes: string[]; removedNodes: string[]; modifiedNodes: string[];
@@ -173,8 +173,9 @@ New agents (Copilot, Cursor, etc.) plug in here.
 
 ## 6. Diffing & snapshots
 
-- `SnapshotStore`: ring buffer (default 50) of serialized graphs; only deltas stored beyond a keyframe to save memory.
-- `GraphDiffer`: set difference on node/edge IDs; "modified" = same ID with changed range/signature/meta hash.
+- `SnapshotStore`: in-memory ring buffer (`flowlens.snapshotLimit`, default 50) of `Graph`s. A snapshot is taken after the initial index (baseline) and after each rebuild caused by applied edits (rapid edits coalesce into one). Unchanged node/edge objects are shared between snapshots, so each costs ~Map overhead + what changed. Not persisted across reloads.
+- `GraphService.view()`: the inspected step *i* (latest by default) → `base = snapshot[i-1]`, `after = snapshot[i]`, `diff`. `payload.ts` sends the base+after union with a `status` per element; the webview's **Current** hides `added`, **After** hides `removed`, **Diff** colors everything (unchanged dimmed).
+- `GraphDiffer`: set difference on node/edge IDs; "modified" = same ID with a different content hash (text of the symbol/file), so lines merely shifting do not count.
 - `insights.ts`: detect new cycles (Tarjan SCC on the changed neighborhood), orphaned functions, removed edges whose callers still textually reference the symbol.
 - Summary generator: templated natural language (no LLM needed). Optional LLM explanation later.
 

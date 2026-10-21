@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { GraphPayload, HostToWebview, NodeKind } from '../../src/shared/messages';
 import type { LayoutMode } from './layout';
-import type { Level } from './view';
+import type { Level, Mode } from './view';
 
 interface InitData {
   version: string;
@@ -14,6 +14,7 @@ export interface State {
   graph: GraphPayload;
   progress: { done: number; total: number } | null;
   level: Level;
+  mode: Mode;
   layout: LayoutMode;
   search: string;
   folder: string;
@@ -26,9 +27,18 @@ export interface State {
 
 export const useStore = create<State>((set, get) => ({
   init: null,
-  graph: { nodes: [], edges: [] },
+  graph: {
+    nodes: [],
+    edges: [],
+    summary: '',
+    counts: { addedNodes: 0, removedNodes: 0, modifiedNodes: 0, addedEdges: 0, removedEdges: 0 },
+    step: null,
+    steps: [],
+    pending: null,
+  },
   progress: null,
   level: 'files',
+  mode: 'diff',
   layout: 'LR',
   search: '',
   folder: '',

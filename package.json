@@ -138,6 +138,12 @@
           "default": 1500,
           "minimum": 50,
           "description": "Maximum nodes rendered at once; the most connected are kept."
+        },
+        "flowlens.snapshotLimit": {
+          "type": "number",
+          "default": 50,
+          "minimum": 2,
+          "description": "How many graph snapshots to keep for the diff and time scrubber."
         }
       }
     }

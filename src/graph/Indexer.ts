@@ -15,6 +15,7 @@ const MAX_FILES = 20000;
 export async function indexWorkspace(
   service: GraphService,
   tracker: EditTracker,
+  label: string,
   onProgress: (done: number, total: number) => void,
 ): Promise<number> {
   const excluded = [...config().excludeFolders];
@@ -41,7 +42,7 @@ export async function indexWorkspace(
         onProgress(done, uris.length);
         await new Promise((r) => setImmediate(r));
       }
-      service.rebuildNow();
+      service.rebuildNow(label);
       return uris.length;
     },
   );

@@ -3,9 +3,37 @@ import type { GraphEdge, GraphNode } from '../graph/types';
 
 export type { GraphEdge, GraphNode, NodeKind, EdgeKind } from '../graph/types';
 
+export type Status = 'added' | 'removed' | 'modified' | 'unchanged';
+export type PayloadNode = GraphNode & { status: Status };
+export type PayloadEdge = GraphEdge & { status: Status };
+
+export interface StepInfo {
+  index: number;
+  id: string;
+  ts: number;
+  label: string;
+  edits: number;
+}
+
+export interface DiffCounts {
+  addedNodes: number;
+  removedNodes: number;
+  modifiedNodes: number;
+  addedEdges: number;
+  removedEdges: number;
+}
+
+/** Before+after union. Diff mode colors by status; Current hides `added`; After hides `removed`. */
 export interface GraphPayload {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
+  nodes: PayloadNode[];
+  edges: PayloadEdge[];
+  summary: string;
+  counts: DiffCounts;
+  /** Snapshot shown as "after" (null before the first index). */
+  step: StepInfo | null;
+  steps: StepInfo[];
+  /** Set while previewing an agent's proposed edit (diff = current vs would-be graph). */
+  pending: { file: string; uncertain: boolean } | null;
 }
 
 export type HostToWebview =

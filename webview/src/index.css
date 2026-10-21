@@ -215,3 +215,80 @@ button:hover {
 .react-flow__minimap-node.mm-cluster {
   fill: transparent;
 }
+.fl-segmented {
+  display: inline-flex;
+}
+.fl-segmented button {
+  background: var(--vscode-input-background);
+  color: var(--vscode-foreground);
+  border: 1px solid var(--fl-border);
+  border-radius: 0;
+}
+.fl-segmented button.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+.fl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--fl-border);
+  min-height: 22px;
+}
+.fl-legend.pending {
+  background: color-mix(in srgb, var(--fl-modified) 15%, transparent);
+}
+.fl-chip {
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid currentColor;
+  font-size: 0.9em;
+}
+.fl-chip.status-added {
+  color: var(--fl-added);
+}
+.fl-chip.status-removed {
+  color: var(--fl-removed);
+}
+.fl-chip.status-modified {
+  color: var(--fl-modified);
+}
+.fl-status {
+  margin-left: auto;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+.react-flow__node.status-added .fl-node {
+  border: 2px solid var(--fl-added);
+}
+.react-flow__node.status-removed .fl-node {
+  border: 2px dashed var(--fl-removed);
+  opacity: 0.85;
+}
+.react-flow__node.status-modified .fl-node {
+  border: 2px solid var(--fl-modified);
+}
+.react-flow__node.status-added .fl-status {
+  color: var(--fl-added);
+}
+.react-flow__node.status-removed .fl-status {
+  color: var(--fl-removed);
+}
+.react-flow__node.status-modified .fl-status {
+  color: var(--fl-modified);
+}
+.react-flow__node.dimmed,
+.react-flow__edge.dimmed {
+  opacity: 0.35;
+}
+.react-flow__edge.status-added path.react-flow__edge-path {
+  stroke: var(--fl-added);
+  stroke-width: 2;
+}
+.react-flow__edge.status-removed path.react-flow__edge-path {
+  stroke: var(--fl-removed);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}

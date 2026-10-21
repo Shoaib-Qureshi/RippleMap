@@ -146,6 +146,41 @@ test('indexes the workspace into a file graph with import edges (M3)', async () 
   assert.ok(tracker.knownText('untouched.ts') !== undefined);
 });
 
+test('an edit adding an import shows an added edge in the diff within 500 ms (M4)', async () => {
+  const { graph, indexed } = await api();
+  await indexed;
+  const uri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0]!.uri, 'untouched.ts');
+  const doc = await vscode.workspace.openTextDocument(uri);
+  const original = doc.getText();
+  const edgeIdWanted = 'untouched.ts::file::untouched.ts->sample.ts::file::sample.ts::imports';
+  try {
+    const edit = new vscode.WorkspaceEdit();
+    edit.insert(uri, new vscode.Position(0, 0), "import { hello } from './sample';\n");
+    await vscode.workspace.applyEdit(edit);
+    const t0 = Date.now();
+    await doc.save();
+    await waitFor(
+      () => (graph.view().diff.addedEdges.includes(edgeIdWanted) ? true : undefined),
+      'added edge',
+      3000,
+    );
+    const ms = Date.now() - t0;
+    assert.ok(ms < 500, `diff took ${ms}ms`);
+    assert.match(graph.view().diff.summary, /Adds 1 import/);
+  } finally {
+    const restore = new vscode.WorkspaceEdit();
+    restore.replace(uri, new vscode.Range(0, 0, doc.lineCount, 0), original);
+    await vscode.workspace.applyEdit(restore);
+    await doc.save();
+  }
+  // Removing it again shows the removed edge.
+  await waitFor(
+    () => (graph.view().diff.removedEdges.includes(edgeIdWanted) ? true : undefined),
+    'removed edge',
+    3000,
+  );
+});
+
 test('webview renders the graph without runtime errors', async () => {
   const { webviewErrors } = await api();
   await vscode.commands.executeCommand('flowlens.openPanel');

@@ -9,7 +9,8 @@ import { extractors } from './graph/extractors';
 import { GraphBuilder } from './graph/GraphBuilder';
 import { GraphService } from './graph/GraphService';
 import { indexWorkspace } from './graph/Indexer';
-import { serialize } from './graph/types';
+import { shortStats } from './graph/GraphDiffer';
+import { toPayload } from './graph/payload';
 import { ParserService } from './parse/ParserService';
 import { Decorations } from './ui/Decorations';
 import { registerEditDiffView } from './ui/EditDiffView';
@@ -45,7 +46,8 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   );
 
   const parser = await ParserService.create(vscode.Uri.joinPath(ctx.extensionUri, 'dist', 'grammars').fsPath);
-  const graph = new GraphService(new GraphBuilder(parser, extractors));
+  const graph = new GraphService(new GraphBuilder(parser, extractors), config().snapshotLimit);
+  const statusBar = new StatusBar(tracker);
 
   const log = vscode.window.createOutputChannel('FlowLens', { log: true });
   const webviewErrors: string[] = [];
@@ -63,11 +65,15 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       });
     }
   });
-  graph.on('update', () => panel.post({ type: 'graph:update', graph: serialize(graph.graph) }));
+  graph.on('update', () => {
+    const view = graph.view();
+    statusBar.setGraphText(shortStats(view.diff));
+    panel.post({ type: 'graph:update', graph: toPayload(view, graph.snapshots.list) });
+  });
 
   tracker.on('applied', (e) => {
-    if (e.kind === 'delete') graph.removeFile(e.file);
-    else if (e.after !== undefined) graph.setFile(e.file, e.after);
+    if (e.kind === 'delete') graph.removeFile(e.file, e.id);
+    else if (e.after !== undefined) graph.setFile(e.file, e.after, e.id);
   });
 
   // Open documents give us a free baseline, so their first save shows a real diff.
@@ -81,7 +87,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     log,
     panel,
     graph,
-    new StatusBar(tracker),
+    statusBar,
     new Decorations(tracker),
     vscode.window.registerTreeDataProvider('flowlens.editFeed', new EditFeedProvider(tracker)),
     registerEditDiffView(tracker),
@@ -92,11 +98,13 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     vscode.workspace.onDidOpenTextDocument(seed),
     vscode.commands.registerCommand('flowlens.openPanel', () => panel.open()),
     vscode.commands.registerCommand('flowlens.clearHistory', () => tracker.clear()),
-    vscode.commands.registerCommand('flowlens.reindex', () => runIndex()),
+    vscode.commands.registerCommand('flowlens.reindex', () => runIndex('Re-index')),
   );
 
-  const runIndex = () =>
-    indexWorkspace(graph, tracker, (done, total) => panel.post({ type: 'index:progress', done, total })).then(
+  const runIndex = (label = 'Initial index') =>
+    indexWorkspace(graph, tracker, label, (done, total) =>
+      panel.post({ type: 'index:progress', done, total }),
+    ).then(
       () => undefined,
       (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: indexing failed: ${String(e)}`),
     );

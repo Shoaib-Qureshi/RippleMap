@@ -5,9 +5,29 @@ import { KIND_ICON } from './FlowNode';
 const FUNCTION_KINDS: NodeKind[] = ['function', 'method', 'class', 'component', 'hook', 'route', 'shortcode'];
 
 export function Toolbar() {
-  const { level, layout, search, folder, hiddenKinds, graph, progress, set, toggleKind } = useStore();
+  const { level, mode, layout, search, folder, hiddenKinds, graph, progress, set, toggleKind } = useStore();
   return (
     <header className="fl-toolbar" role="toolbar">
+      <span className="fl-segmented" role="radiogroup" aria-label="Graph mode">
+        {(['current', 'after', 'diff'] as const).map((m) => (
+          <button
+            key={m}
+            role="radio"
+            aria-checked={mode === m}
+            className={mode === m ? 'active' : ''}
+            title={
+              {
+                current: 'Graph before the change',
+                after: 'Graph after the change',
+                diff: 'Before + after, colored',
+              }[m]
+            }
+            onClick={() => set({ mode: m })}
+          >
+            {{ current: 'Current', after: 'After', diff: 'Diff' }[m]}
+          </button>
+        ))}
+      </span>
       <select
         aria-label="Graph level"
         value={level}
