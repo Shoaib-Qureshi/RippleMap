@@ -32,6 +32,16 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "flowlens.installHooks",
+        "title": "Install Claude Code Hooks",
+        "category": "FlowLens"
+      },
+      {
+        "command": "flowlens.removeHooks",
+        "title": "Remove Claude Code Hooks",
+        "category": "FlowLens"
+      },
+      {
         "command": "flowlens.showEditDiff",
         "title": "Show Edit Diff",
         "category": "FlowLens"
@@ -57,7 +67,7 @@
     "viewsWelcome": [
       {
         "view": "flowlens.editFeed",
-        "contents": "No edits yet. Save a file or let your AI agent edit one.\n[Open Graph Panel](command:flowlens.openPanel)"
+        "contents": "No edits yet. Save a file or let your AI agent edit one.\n[Install Claude Code Hooks](command:flowlens.installHooks)\n[Open Graph Panel](command:flowlens.openPanel)"
       }
     ],
     "menus": {

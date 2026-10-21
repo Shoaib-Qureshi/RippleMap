@@ -1,5 +1,8 @@
 // Runs inside the Extension Development Host. Deliberately tiny: no mocha, just ordered async tests.
 import * as assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { FlowLensApi } from '../../src/extension';
 
@@ -54,6 +57,83 @@ test('saving an edit creates a feed entry with +/- lines and ranges (M1)', async
     await vscode.workspace.applyEdit(restore);
     await doc.save();
   }
+});
+
+const forward = (payload: object) => {
+  const forwarder = path.join(
+    vscode.extensions.getExtension('tier2.flowlens')!.extensionPath,
+    'hook',
+    'hook-forwarder.js',
+  );
+  const env = { ...process.env };
+  delete env.CLAUDE_PROJECT_DIR;
+  delete env.ELECTRON_RUN_AS_NODE;
+  const t0 = Date.now();
+  const r = spawnSync('node', [forwarder], { input: JSON.stringify(payload), env, encoding: 'utf8' });
+  return { ...r, ms: Date.now() - t0 };
+};
+
+test('Claude Code hook payloads via the real forwarder produce proposed then applied (M2)', async () => {
+  const { tracker } = await api();
+  const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
+  const file = path.join(root, 'hooked.ts');
+  fs.writeFileSync(file, 'export const a = 1;\n');
+  await new Promise((r) => setTimeout(r, 400)); // let the watcher record the create
+  const base = {
+    session_id: 'sess-1234567890',
+    cwd: root,
+    tool_name: 'Edit',
+    tool_use_id: 'toolu_1',
+    tool_input: { file_path: file, old_string: 'a = 1', new_string: 'a = 2' },
+  };
+  try {
+    const pre = forward({ ...base, hook_event_name: 'PreToolUse' });
+    assert.equal(pre.status, 0);
+    assert.equal(pre.stdout, '');
+    assert.equal(pre.stderr, '');
+    assert.ok(pre.ms < 1500, `forwarder took ${pre.ms}ms`);
+    const proposed = await waitFor(
+      () => tracker.edits.find((e) => e.toolUseId === 'toolu_1' && e.status === 'proposed'),
+      'proposed',
+    );
+    assert.equal(proposed.after, 'export const a = 2;\n');
+    assert.equal(fs.readFileSync(file, 'utf8'), 'export const a = 1;\n'); // nothing touched disk
+
+    fs.writeFileSync(file, 'export const a = 2;\n');
+    assert.equal(forward({ ...base, hook_event_name: 'PostToolUse', tool_response: {} }).status, 0);
+    const applied = await waitFor(
+      () => tracker.edits.find((e) => e.toolUseId === 'toolu_1' && e.status === 'applied'),
+      'applied',
+    );
+    assert.equal(applied.source, 'claude-code');
+    assert.equal(applied.added, 1);
+    assert.equal(
+      tracker.edits.filter(
+        (e) =>
+          e.file === 'hooked.ts' &&
+          e.ts >= applied.ts - 3000 &&
+          e !== applied &&
+          e.source === 'manual' &&
+          e.after === applied.after,
+      ).length,
+      0,
+    );
+    assert.ok(!tracker.edits.some((e) => e.toolUseId === 'toolu_1' && e.status === 'proposed'));
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+});
+
+test('forwarder exits 0 silently when no FlowLens window is listening', async () => {
+  const r = forward({ hook_event_name: 'PreToolUse', cwd: path.parse(process.cwd()).root });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout + r.stderr, '');
+  const bad = spawnSync(
+    'node',
+    [path.join(vscode.extensions.getExtension('tier2.flowlens')!.extensionPath, 'hook', 'hook-forwarder.js')],
+    { input: 'not json', encoding: 'utf8' },
+  );
+  assert.equal(bad.status, 0);
 });
 
 export async function run(): Promise<void> {

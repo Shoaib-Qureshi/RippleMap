@@ -9,4 +9,13 @@ export default tseslint.config(
     files: ['**/*.mjs'],
     languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } },
   },
+  {
+    // Plain CommonJS script run by Claude Code (not bundled).
+    files: ['hook/**/*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { require: 'readonly', module: 'writable', process: 'readonly', Buffer: 'readonly', setTimeout: 'readonly' },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 );

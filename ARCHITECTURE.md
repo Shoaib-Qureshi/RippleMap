@@ -138,11 +138,14 @@ Stable node IDs are essential — diffing relies on them. Use relative path + ki
 ## 4. Edit capture
 
 ### 4.1 Claude Code hooks (primary)
-- `FlowLens: Install Claude Code Hooks` merges entries into `.claude/settings.local.json` (project-level), never overwriting existing hooks. Backs up the file first.
-- Hooks: `PreToolUse` and `PostToolUse` with matcher for file-editing tools (`Edit|Write|MultiEdit` — verify tool names against current Claude Code docs).
-- Hook command: `node "<ext-path>/hook/hook-forwarder.js"`. It reads the JSON payload from stdin, reads port+token from a discovery file (`%TEMP%/flowlens/<workspaceHash>.json` or equivalent), POSTs to the HookServer with a 500 ms timeout, and **always exits 0**.
-- `PreToolUse` → `EditEvent{status:'proposed'}`; `PostToolUse` → `status:'applied'`.
-- Windows: quote paths, avoid shell-specific syntax, normalize `\` to `/` internally.
+Verified against https://code.claude.com/docs/en/hooks (Oct 2026); all assumptions live in `ClaudeCodeAdapter.ts`.
+- `FlowLens: Install Claude Code Hooks` merges entries into `.claude/settings.local.json` of each workspace folder. Existing hooks are kept; FlowLens groups (identified by the `flowlens-hook-forwarder` filename) are replaced, so it is idempotent. The file is backed up first (`settings.local.json.flowlens-backup-<ts>`); invalid JSON is never overwritten. `FlowLens: Remove Claude Code Hooks` removes only FlowLens groups.
+- Events: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionDenied` (matcher `Edit|Write|MultiEdit`; MultiEdit is no longer documented but harmless to match) and `Stop` (no matcher). `timeout: 5` (seconds).
+- Payload: `session_id`, `cwd`, `hook_event_name`, `tool_name`, `tool_input` (`file_path` is absolute), `tool_use_id`, `tool_response` (Post).
+- Hook command: `node "<globalStorage>/flowlens-hook-forwarder.js"` — shell form with forward slashes works in both Git Bash and PowerShell (Claude Code's Windows shells). The forwarder is copied to global storage on every activation so the path survives extension updates.
+- Forwarder: reads stdin, walks up from `CLAUDE_PROJECT_DIR`/`cwd` looking for `%TEMP%/flowlens/<sha256(normalized dir)[0:16]>.json` (port + token, written by `HookServer`), POSTs with a 400 ms timeout, hard-exits at 700 ms, prints nothing, **always exits 0**.
+- `PreToolUse` → `proposed` (proposed text computed in memory: `Edit` old→new, exactly-one-match else `uncertain`, LF strings matched against CRLF files; `Write` content). `PostToolUse` → `applied` (text read from disk). `PostToolUseFailure`/`PermissionDenied` → discard that proposal; `Stop` → discard all remaining proposals (manual denial of a permission dialog fires no hook, so Stop is the cleanup point).
+- `HookServer` replies 204 before processing; payloads are handled serially so Pre/Post order is kept.
 
 ### 4.2 Fallback
 - `ManualEditAdapter`: one edit per **save** (`onDidSaveTextDocument`) + `createFileSystemWatcher` for changes made outside the editor, debounced 150 ms per file.

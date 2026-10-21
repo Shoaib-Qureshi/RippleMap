@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { AgentAdapter } from './AgentAdapter';
+import type { AgentAdapter, EditSink } from './AgentAdapter';
 import type { RawEdit } from './EditEvent';
 import { readText, trackedRel } from '../util/workspace';
 
@@ -12,7 +12,8 @@ const DEBOUNCE_MS = 150;
 export class ManualEditAdapter implements AgentAdapter {
   readonly id = 'manual';
 
-  start(emit: (e: RawEdit) => void): vscode.Disposable {
+  start(sink: EditSink): vscode.Disposable {
+    const emit = (e: RawEdit) => sink.emit(e);
     const timers = new Map<string, NodeJS.Timeout>();
     const later = (rel: string, fn: () => void) => {
       clearTimeout(timers.get(rel));
