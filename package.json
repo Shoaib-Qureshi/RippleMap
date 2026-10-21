@@ -1,0 +1,62 @@
+{
+  "name": "flowlens",
+  "displayName": "FlowLens",
+  "description": "See what your AI agent changed and how your app's workflow graph changes, in real time.",
+  "version": "0.0.1",
+  "publisher": "tier2",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "flowlens.openPanel",
+        "title": "Open Panel",
+        "category": "FlowLens"
+      }
+    ]
+  },
+  "scripts": {
+    "clean": "rimraf dist out",
+    "build": "run-s clean build:ext build:webview",
+    "build:ext": "node esbuild.config.mjs",
+    "build:webview": "vite build --config webview/vite.config.mts",
+    "watch": "run-p watch:*",
+    "watch:ext": "node esbuild.config.mjs --watch",
+    "watch:webview": "vite build --config webview/vite.config.mts --watch",
+    "typecheck": "tsc -p . --noEmit && tsc -p webview --noEmit",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:integration": "npm run build && node test/integration/runTests.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/vscode": "^1.90.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "npm-run-all2": "^9.0.3",
+    "prettier": "^3.9.10",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "rimraf": "^6.1.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "zustand": "^5.0.15"
+  }
+}
