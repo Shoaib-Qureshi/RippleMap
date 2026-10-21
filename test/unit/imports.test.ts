@@ -5,6 +5,7 @@ describe('imports extractor (golden graphs)', () => {
   it('JS/TS: ESM, require, re-export, dynamic import, .js->.ts, @/ alias; ignores packages', async () => {
     const g = (await builderFor(fixture('js-app'))).build();
     expect(edgeList(g, ['imports'])).toEqual([
+      'src/app/api/items/route.ts -> src/lib/util.ts (imports)',
       'src/components/App.tsx -> src/components/Button.tsx (imports)',
       'src/index.ts -> src/lib/util.ts (imports)',
       'src/index.ts -> src/server.ts (imports)',

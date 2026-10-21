@@ -112,6 +112,12 @@ const php: Rules = {
   ref(n) {
     if (n.type === 'function_call_expression') {
       const f = n.childForFieldName('function');
+      // WordPress: firing a hook is a call into it (the hook node comes from the wordpress extractor).
+      if (f && /^(do_action|apply_filters)(_ref_array)?$/.test(f.text)) {
+        const arg = n.childForFieldName('arguments')?.namedChildren[0]?.namedChildren[0];
+        const hook = arg && /string/.test(arg.type) ? arg.text.slice(1, -1) : undefined;
+        if (hook) return { name: hook, kind: 'calls', targetKinds: ['hook'] };
+      }
       if (f && /name/.test(f.type)) return { name: lastSegment(f.text), kind: 'calls' };
     } else if (n.type === 'member_call_expression' || n.type === 'nullsafe_member_call_expression') {
       const name = n.childForFieldName('name')?.text;

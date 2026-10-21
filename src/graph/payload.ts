@@ -29,7 +29,7 @@ export function toPayload(v: GraphView, steps: readonly Snapshot[]): GraphPayloa
   return {
     nodes,
     edges,
-    summary: diff.summary,
+    summary: !v.pending && v.stepIndex === 0 ? 'Baseline graph: no edits yet.' : diff.summary,
     counts: {
       addedNodes: diff.addedNodes.length,
       removedNodes: diff.removedNodes.length,

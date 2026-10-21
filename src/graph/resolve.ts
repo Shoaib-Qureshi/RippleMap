@@ -9,10 +9,13 @@ import {
   type Graph,
   type GraphNode,
   type ImportFact,
+  type NodeKind,
 } from './types';
 
 const JS_EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
-const NAMED_KINDS = new Set(['function', 'method', 'class', 'component']);
+const NAMED_KINDS = new Set(['function', 'method', 'class', 'component', 'hook']);
+/** Plain name refs (no targetKinds) only match code symbols, never framework nodes like hooks. */
+const CODE_KINDS: NodeKind[] = ['function', 'method', 'class', 'component'];
 
 const dir = (f: string) => path.posix.dirname(f);
 const norm = (p: string) => {
@@ -138,7 +141,8 @@ export function resolve(all: ReadonlyMap<string, FileFacts>): Graph {
     const near = imported.get(f.file)!;
     for (const r of f.refs) {
       let cands = byName.get(r.name) ?? [];
-      if (r.targetKinds) cands = cands.filter((n) => r.targetKinds!.includes(n.kind));
+      const kinds = r.targetKinds ?? CODE_KINDS;
+      cands = cands.filter((n) => kinds.includes(n.kind));
       if (r.receiver) {
         const m = cands.filter((n) => n.kind === 'method');
         if (m.length) cands = m;
