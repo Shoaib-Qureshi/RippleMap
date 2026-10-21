@@ -136,6 +136,23 @@ test('forwarder exits 0 silently when no FlowLens window is listening', async ()
   assert.equal(bad.status, 0);
 });
 
+test('indexes the workspace into a file graph with import edges (M3)', async () => {
+  const { graph, indexed, tracker } = await api();
+  await indexed;
+  const ids = [...graph.graph.nodes.keys()];
+  assert.ok(ids.includes('main.ts::file::main.ts'), ids.join(', '));
+  assert.ok(graph.graph.edges.has('main.ts::file::main.ts->sample.ts::file::sample.ts::imports'));
+  // Index seeds baselines: an outside-the-editor change now gets a real diff ("sync before").
+  assert.ok(tracker.knownText('untouched.ts') !== undefined);
+});
+
+test('webview renders the graph without runtime errors', async () => {
+  const { webviewErrors } = await api();
+  await vscode.commands.executeCommand('flowlens.openPanel');
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.deepEqual(webviewErrors, []);
+});
+
 export async function run(): Promise<void> {
   const failures: string[] = [];
   for (const [name, fn] of tests) {

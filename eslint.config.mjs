@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'out', '.vscode-test', 'node_modules'] },
+  { ignores: ['dist', 'out', '.vscode-test', 'node_modules', 'test/fixtures'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -14,7 +14,13 @@ export default tseslint.config(
     files: ['hook/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
-      globals: { require: 'readonly', module: 'writable', process: 'readonly', Buffer: 'readonly', setTimeout: 'readonly' },
+      globals: {
+        require: 'readonly',
+        module: 'writable',
+        process: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+      },
     },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },

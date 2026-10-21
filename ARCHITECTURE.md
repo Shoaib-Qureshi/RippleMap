@@ -164,11 +164,12 @@ New agents (Copilot, Cursor, etc.) plug in here.
 
 ## 5. Parsing & graph building
 
-- `web-tree-sitter` (WASM) + prebuilt grammars (JS, TS/TSX, PHP, Python). **No native modules** (Windows-friendly, no build toolchain).
-- `ParserService` keeps a per-file tree cache; on edit, re-parse incrementally using `tree.edit()` when ranges are known, else full-file parse.
-- `GraphBuilder` runs extractors per file, producing per-file partial graphs; the workspace graph is the union. On edit, only that file's partial graph is rebuilt, and edges referencing it are re-resolved.
+- `@vscode/tree-sitter-wasm` (Microsoft's build of web-tree-sitter + grammars, versions guaranteed compatible): JS, TS, TSX, PHP, Python. The build copies the `.wasm` files to `dist/grammars`. **No native modules.**
+- `ParserService` does a full re-parse per change (no tree cache / `tree.edit()`): a single file parses well inside the 300 ms budget. Trees are `delete()`d right after extraction (WASM memory).
+- `GraphBuilder` runs extractors per file into **`FileFacts`** (nodes with stable ids + content hash, unresolved `imports`, name-based `refs`, and direct `edges`). `resolve()` (graph/resolve.ts) turns *all* facts into the workspace graph in one pass; on edit only the changed file is re-extracted, then resolution reruns (cheap: no parsing). `GraphService` debounces rebuilds (30 ms) and emits `update`.
 - Cross-file resolution: import resolution (relative paths, tsconfig paths basic, PHP `require/include`, `use`), then symbol-name matching with confidence levels.
-- Initial index runs in a worker/chunked async loop with progress notification and respects `.gitignore` + configurable excludes (`node_modules`, `vendor`, `dist`, `wp-includes`, etc.).
+- Ref resolution confidence: same file / same class / imported file → high; unique name elsewhere → medium (`obj.x()` → low); 2–3 candidates → low each; more → dropped.
+- Initial index (`Indexer.ts`): chunked async loop (25 files, `setImmediate` yields) with window progress; excludes are folder names from `flowlens.excludeFolders` (not `.gitignore`). It also seeds EditTracker baselines.
 
 ## 6. Diffing & snapshots
 
@@ -191,6 +192,8 @@ New agents (Copilot, Cursor, etc.) plug in here.
 - State in zustand; the extension host is the source of truth and pushes `graph:update`, `diff:update`, `edits:update`.
 - Diff colors: added `#2ea043`, removed `#f85149`, modified `#d29922`, plus icons (+ / − / ~) for color-blind safety. Use VS Code theme CSS variables for everything else.
 - Strict CSP with nonce; no remote resources.
+
+- Webview runtime errors are posted back (`error` message) and logged to the "FlowLens" output channel; an integration test asserts none occur.
 
 ### Message protocol (typed)
 ```

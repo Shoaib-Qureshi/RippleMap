@@ -32,6 +32,12 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "flowlens.reindex",
+        "title": "Re-index Workspace",
+        "category": "FlowLens",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "flowlens.installHooks",
         "title": "Install Claude Code Hooks",
         "category": "FlowLens"
@@ -121,6 +127,17 @@
           "default": 60,
           "minimum": 5,
           "description": "How long edited-line highlights take to fade out."
+        },
+        "flowlens.indexOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Index the workspace graph when VS Code starts."
+        },
+        "flowlens.maxNodes": {
+          "type": "number",
+          "default": 1500,
+          "minimum": 50,
+          "description": "Maximum nodes rendered at once; the most connected are kept."
         }
       }
     }
