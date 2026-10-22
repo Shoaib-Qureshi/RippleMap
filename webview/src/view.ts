@@ -168,3 +168,39 @@ export function simpleEdges(
     (e) => e.status !== 'unchanged' || !shared.has(e.to) || e.from === active || e.to === active,
   );
 }
+
+const ROLE: Record<string, string> = { page: 'Page at', layout: 'Layout for', route: 'API endpoint' };
+const list = (xs: string[], max = 4) =>
+  xs.slice(0, max).join(', ') + (xs.length > max ? ` +${xs.length - max} more` : '');
+
+/**
+ * Short "what is this" for the details drawer: the author's doc comment (if any) plus facts derived from
+ * the graph: Next.js route/role, 'use client'/'use server', routes handled, symbols defined.
+ */
+export function describe(node: PayloadNode, g: GraphPayload): { doc?: string; facts: string } {
+  const doc = typeof node.meta?.doc === 'string' ? node.meta.doc : undefined;
+  if (node.kind !== 'file') {
+    const cls = node.meta?.class;
+    return { doc, facts: node.kind === 'method' && typeof cls === 'string' ? `Method of ${cls}.` : '' };
+  }
+  const facts: string[] = [];
+  const next = /(?:^|\/)app\/(?:(.*)\/)?(page|layout|route)\.[jt]sx?$/.exec(node.file);
+  const api = /(?:^|\/)pages\/(api\/.*?)(?:\/index)?\.[jt]s$/.exec(node.file);
+  if (next)
+    facts.push(`${ROLE[next[2]!]} /${(next[1] ?? '').replace(/\([^)]*\)\/?/g, '').replace(/\/$/, '')}`);
+  else if (api) facts.push(`API endpoint /${api[1]}`);
+  const dir = node.meta?.directive;
+  if (dir === 'use server') facts.push('Server actions (run on the server)');
+  else if (dir === 'use client') facts.push('Runs in the browser (client component)');
+  const inFile = g.nodes.filter((n) => n.file === node.file && n.kind !== 'file' && !n.meta?.anonymous);
+  const routes = inFile.filter((n) => n.kind === 'route').map((n) => n.label);
+  if (routes.length) facts.push(`Handles ${list(routes, 3)}`);
+  // Top-level only (nested helpers have a dotted qname); components and classes first.
+  const rank = { component: 0, class: 1, function: 2 } as Record<string, number>;
+  const defs = inFile
+    .filter((n) => n.kind in rank && !String(n.meta?.qname ?? '').includes('.'))
+    .sort((a, b) => rank[a.kind]! - rank[b.kind]!)
+    .map((n) => n.label);
+  if (defs.length) facts.push(`Defines ${list(defs)}`);
+  return { doc, facts: facts.length ? `${facts.join('. ')}.` : '' };
+}

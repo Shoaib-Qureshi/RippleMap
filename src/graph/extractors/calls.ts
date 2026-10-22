@@ -2,6 +2,7 @@ import type { Node } from '@vscode/tree-sitter-wasm';
 import { hashText } from '../hash';
 import type { GraphNode, Lang, NodeKind, RefFact } from '../types';
 import { range, type ExtractContext, type Extractor } from './Extractor';
+import { symbolDoc } from '../docs';
 
 const JSX = ['jsx_element', 'jsx_self_closing_element', 'jsx_fragment'];
 const isCap = (s: string) => /^[A-Z]/.test(s);
@@ -12,6 +13,11 @@ interface Scope {
   qname: string;
   cls?: string; // enclosing class name
 }
+
+const docMeta = (n: Node, body?: Node | null) => {
+  const doc = symbolDoc(n, body);
+  return doc ? { doc } : {};
+};
 
 type Def = { kind: NodeKind; name: string; body?: Node | null };
 
@@ -219,7 +225,7 @@ export const callsExtractor: Extractor = {
           file,
           range: range(n),
           hash: hashText(text),
-          meta: { name: def.name, qname, ...(cls ? { class: cls } : {}) },
+          meta: { name: def.name, qname, ...(cls ? { class: cls } : {}), ...docMeta(n, def.body) },
         });
         if (def.kind === 'class') {
           for (const b of rules.bases(n)) addRef(id, { name: b, kind: 'extends', targetKinds: ['class'] });

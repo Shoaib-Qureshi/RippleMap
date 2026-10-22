@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MAX_NOTE, type GraphNode } from '../../../src/shared/messages';
 import { useStore } from '../store';
-import { activities } from '../view';
+import { activities, describe } from '../view';
 import { vscode } from '../vscode';
 
 export function DetailsDrawer() {
@@ -10,6 +10,7 @@ export function DetailsDrawer() {
   const node = graph.nodes.find((n) => n.id === selectedId);
   if (!node) return null;
   const doing = activity.get(node.id);
+  const about = describe(node, graph);
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
   const incoming = graph.edges.filter((e) => e.to === node.id);
   const outgoing = graph.edges.filter((e) => e.from === node.id);
@@ -52,6 +53,13 @@ export function DetailsDrawer() {
         {node.kind} · {node.file}
         {node.range ? `:${node.range.startLine}` : ''}
       </p>
+      {(about.doc || about.facts) && (
+        <p className="fl-desc">
+          {about.doc}
+          {about.doc && about.facts && ' '}
+          {about.facts && <span className="fl-muted">{about.facts}</span>}
+        </p>
+      )}
       {doing && <p className="fl-activity">{doing}</p>}
       <div className="fl-actions">
         <button onClick={() => open(node)}>Open in editor</button>

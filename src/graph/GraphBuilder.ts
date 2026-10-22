@@ -2,6 +2,7 @@ import type { ParserService } from '../parse/ParserService';
 import { langFor } from '../parse/ParserService';
 import { basename } from '../util/paths';
 import type { Extractor } from './extractors/Extractor';
+import { directive, fileDoc } from './docs';
 import { hashText } from './hash';
 import { resolve } from './resolve';
 import { fileNodeId, type FileFacts, type Graph } from './types';
@@ -39,6 +40,12 @@ export class GraphBuilder {
     const tree = this.parser.parse(lang, text);
     if (!tree) return facts;
     try {
+      // Shown in the UI only; not part of the hash, so it never marks a node modified.
+      const meta = facts.nodes[0]!.meta!;
+      const doc = fileDoc(tree.rootNode);
+      const dir = directive(tree.rootNode);
+      if (doc) meta.doc = doc;
+      if (dir) meta.directive = dir;
       for (const x of this.extractors)
         if (x.languages.includes(lang)) x.extract({ file, lang, text, root: tree.rootNode, facts });
     } finally {

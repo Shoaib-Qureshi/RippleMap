@@ -399,3 +399,8 @@ button:hover {
 .react-flow__edge.hl:not(.status-added):not(.status-removed) path.react-flow__edge-path {
   stroke: var(--vscode-focusBorder);
 }
+
+.fl-desc {
+  line-height: 1.4;
+  margin: 4px 0 8px;
+}
