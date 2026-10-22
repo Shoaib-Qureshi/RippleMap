@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { summarize } from '../../src/ai/summarize';
+import { cleanKey, summarize } from '../../src/ai/summarize';
 
 const cfg = { baseUrl: 'https://openrouter.ai/api/v1/', model: 'openrouter/free', key: 'sk-test' };
 const reply = (status: number, body: unknown) => async () =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+describe('cleanKey', () => {
+  it('accepts a key however it was pasted', () => {
+    for (const raw of [
+      'sk-or-v1-abc',
+      ' sk-or-v1-abc\n',
+      'OPENROUTER_API_KEY=sk-or-v1-abc',
+      'export OPENROUTER_API_KEY = "sk-or-v1-abc"',
+      "'sk-or-v1-abc'",
+      'Bearer sk-or-v1-abc',
+    ])
+      expect(cleanKey(raw)).toBe('sk-or-v1-abc');
+  });
+});
 
 describe('summarize', () => {
   it('posts an OpenAI-compatible chat request and returns one clean line', async () => {

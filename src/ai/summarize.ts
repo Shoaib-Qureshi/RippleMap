@@ -16,6 +16,19 @@ export interface SummaryRequest {
 
 const MAX_CODE = 24_000;
 
+/**
+ * Accepts a key pasted however it was copied: a whole `.env` line (`OPENROUTER_API_KEY=...`), quoted,
+ * with `Bearer ` or stray whitespace. OpenRouter answers any of those with "Missing Authentication header".
+ */
+export function cleanKey(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^(export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*/, '')
+    .replace(/^bearer\s+/i, '')
+    .replace(/^['"`]+|['"`]+$/g, '')
+    .replace(/\s+/g, '');
+}
+
 export async function summarize(
   cfg: AiConfig,
   req: SummaryRequest,
@@ -28,7 +41,7 @@ export async function summarize(
     res = await fetchImpl(`${cfg.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
       method: 'POST',
       headers: {
-        authorization: `Bearer ${cfg.key}`,
+        authorization: `Bearer ${cleanKey(cfg.key)}`,
         'content-type': 'application/json',
         // OpenRouter app attribution; ignored by other providers.
         'x-title': 'FlowLens',

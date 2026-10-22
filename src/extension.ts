@@ -4,7 +4,7 @@ import type { RawEdit } from './capture/EditEvent';
 import { EditTracker } from './capture/EditTracker';
 import { HookServer } from './capture/HookServer';
 import { ManualEditAdapter } from './capture/ManualEditAdapter';
-import { summarize } from './ai/summarize';
+import { cleanKey, summarize } from './ai/summarize';
 import { saveExport } from './commands/exportGraph';
 import { ensureForwarder, registerHookCommands } from './commands/installHooks';
 import { extractors } from './graph/extractors';
@@ -144,9 +144,10 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       ignoreFocusOut: true,
     });
     if (k === undefined) return undefined;
-    if (k.trim()) await ctx.secrets.store(AI_KEY_SECRET, k.trim());
+    const key = cleanKey(k);
+    if (key) await ctx.secrets.store(AI_KEY_SECRET, key);
     else await ctx.secrets.delete(AI_KEY_SECRET);
-    return k.trim() || undefined;
+    return key || undefined;
   };
   const explain = async (nodeId: string) => {
     const n = graph.graph.nodes.get(nodeId);
@@ -155,8 +156,9 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     const prev = summaries[nodeId];
     setSummary(nodeId, { ...prev, loading: true, error: undefined });
     try {
+      // `||`: an empty stored/env value falls through to the prompt.
       const key =
-        (await ctx.secrets.get(AI_KEY_SECRET)) ?? process.env.OPENROUTER_API_KEY ?? (await promptKey());
+        (await ctx.secrets.get(AI_KEY_SECRET)) || process.env.OPENROUTER_API_KEY || (await promptKey());
       if (!key) throw new Error('No API key set. Run "FlowLens: Set AI API Key".');
       const text = await readText(uri);
       if (text === undefined) throw new Error(`Can't read ${n.file}.`);
