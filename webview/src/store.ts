@@ -26,6 +26,8 @@ export interface State {
   flowDepth: number;
   /** Hide lines into shared files (used by many); hover/select reveals them. */
   simple: boolean;
+  /** "Start here" panel, shown while no node is selected. */
+  overviewOpen: boolean;
   /** Instructions for the AI agent, by node id. */
   notes: Record<string, string>;
   /** AI explanations, by node id. */
@@ -63,6 +65,7 @@ export const useStore = create<State>((set, get) => ({
   flowRoot: null,
   flowDepth: 3,
   simple: true,
+  overviewOpen: true,
   showFlow: (id) => set(id ? { flowRoot: id, selectedId: id } : { flowRoot: null }),
   set: (patch) => set(patch),
   toggleKind: (k) => {

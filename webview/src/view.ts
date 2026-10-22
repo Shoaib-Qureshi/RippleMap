@@ -177,11 +177,38 @@ const list = (xs: string[], max = 4) =>
  * Short "what is this" for the details drawer: the author's doc comment (if any) plus facts derived from
  * the graph: Next.js route/role, 'use client'/'use server', routes handled, symbols defined.
  */
-export function describe(node: PayloadNode, g: GraphPayload): { doc?: string; facts: string } {
+export function describe(
+  node: PayloadNode,
+  g: GraphPayload,
+): { doc?: string; facts: string; impact?: string } {
   const doc = typeof node.meta?.doc === 'string' ? node.meta.doc : undefined;
-  if (node.kind !== 'file') {
+  const isFile = node.kind === 'file';
+  const users = new Set(
+    g.edges
+      .filter(
+        (e) =>
+          e.to === node.id &&
+          e.status !== 'removed' &&
+          (isFile ? e.kind === 'imports' : e.kind !== 'imports'),
+      )
+      .map((e) => e.from),
+  ).size;
+  const impact =
+    users >= 5
+      ? `Used by ${users} ${isFile ? 'files' : 'callers'}. Changes here ripple widely; check them before editing.`
+      : isFile &&
+          !users &&
+          !g.edges.some((e) => e.from === node.id && e.kind === 'imports') &&
+          !CONVENTION.test(node.file)
+        ? 'Nothing imports this file. It may be loaded another way (framework, script tag, cron) or be unused.'
+        : undefined;
+  if (!isFile) {
     const cls = node.meta?.class;
-    return { doc, facts: node.kind === 'method' && typeof cls === 'string' ? `Method of ${cls}.` : '' };
+    return {
+      doc,
+      impact,
+      facts: node.kind === 'method' && typeof cls === 'string' ? `Method of ${cls}.` : '',
+    };
   }
   const facts: string[] = [];
   const next = /(?:^|\/)app\/(?:(.*)\/)?(page|layout|route)\.[jt]sx?$/.exec(node.file);
@@ -202,5 +229,94 @@ export function describe(node: PayloadNode, g: GraphPayload): { doc?: string; fa
     .sort((a, b) => rank[a.kind]! - rank[b.kind]!)
     .map((n) => n.label);
   if (defs.length) facts.push(`Defines ${list(defs)}`);
-  return { doc, facts: facts.length ? `${facts.join('. ')}.` : '' };
+  return { doc, impact, facts: facts.length ? `${facts.join('. ')}.` : '' };
+}
+
+export interface OverviewItem {
+  id: string;
+  label: string;
+  hint: string;
+}
+export interface Overview {
+  stats: string;
+  /** Where the app starts: pages, API routes, routes, framework hooks, or top-level files. */
+  entries: OverviewItem[];
+  /** Files many others import: changes here ripple widely. */
+  core: OverviewItem[];
+  /** Code files nothing imports and that aren't framework entry points. */
+  unused: OverviewItem[];
+}
+
+const NEXT_ENTRY = /(?:^|\/)app\/(?:(.*)\/)?(page|route)\.[jt]sx?$/;
+/** Files a framework or tool loads by convention, so "nobody imports it" is expected. */
+const CONVENTION =
+  /(^|\/)(page|layout|route|loading|error|not-found|global-error|template|default|middleware|proxy|instrumentation|robots|sitemap|manifest|icon|opengraph-image|functions|wp-config|index|main|app|server|setup|conftest|manage)\.[a-z]+$|\.config\.[a-z]+$|(^|\/)(tests?|__tests__|scripts?)\/|\.(test|spec)\.[a-z]+$/;
+const urlOf = (dirPart: string | undefined) =>
+  `/${(dirPart ?? '').replace(/\([^)]*\)\/?/g, '').replace(/\/$/, '')}`;
+
+/** "Start here" summary of the whole project, the way a senior would walk a newcomer through it. */
+export function overview(g: GraphPayload): Overview {
+  const nodes = g.nodes.filter((n) => n.status !== 'removed');
+  const edges = g.edges.filter((e) => e.status !== 'removed');
+  const files = nodes.filter((n) => n.kind === 'file');
+  const importers = new Map<string, number>();
+  const linked = new Set<string>();
+  const handlers = new Map<string, number>();
+  for (const e of edges) {
+    if (e.kind === 'imports') {
+      importers.set(e.to, (importers.get(e.to) ?? 0) + 1);
+      linked.add(e.from).add(e.to);
+    }
+    if (e.kind === 'registers') handlers.set(e.from, (handlers.get(e.from) ?? 0) + 1);
+  }
+
+  const byLabel = (a: OverviewItem, b: OverviewItem) => a.label.localeCompare(b.label);
+  const entries: OverviewItem[] = [];
+  const pages: OverviewItem[] = [];
+  for (const f of files) {
+    const m = NEXT_ENTRY.exec(f.file);
+    if (m) pages.push({ id: f.id, label: urlOf(m[1]), hint: m[2] === 'page' ? 'page' : 'API route' });
+  }
+  entries.push(...pages.sort(byLabel));
+  entries.push(
+    ...nodes
+      .filter((n) => n.kind === 'route')
+      .map((n) => ({ id: n.id, label: n.label, hint: 'route' }))
+      .sort(byLabel),
+  );
+  const hooks = nodes
+    .filter((n) => n.kind === 'hook' && handlers.has(n.id))
+    .sort((a, b) => handlers.get(b.id)! - handlers.get(a.id)!);
+  for (const h of hooks)
+    entries.push({
+      id: h.id,
+      label: h.label,
+      hint: `hook · ${handlers.get(h.id)} handler${handlers.get(h.id) === 1 ? '' : 's'}`,
+    });
+  if (!entries.length)
+    // No framework entry points: top-level files (import others, imported by none), most connected first.
+    files
+      .filter((f) => linked.has(f.id) && !importers.has(f.id))
+      .forEach((f) => entries.push({ id: f.id, label: f.label, hint: f.file }));
+
+  const generated = (f: PayloadNode) =>
+    /(^|\/)(generated|__generated__)\//.test(f.file) || /\bgenerated\b/i.test(String(f.meta?.doc ?? ''));
+  const core = files
+    .filter((f) => (importers.get(f.id) ?? 0) >= 3 && !generated(f))
+    .sort((a, b) => importers.get(b.id)! - importers.get(a.id)!)
+    .slice(0, 6)
+    .map((f) => ({ id: f.id, label: f.label, hint: `used by ${importers.get(f.id)} files · ${f.file}` }));
+
+  const unused = files
+    .filter((f) => !linked.has(f.id) && !CONVENTION.test(f.file))
+    .sort((a, b) => a.file.localeCompare(b.file))
+    .map((f) => ({ id: f.id, label: f.label, hint: f.file }));
+
+  const fns = nodes.filter((n) => n.kind !== 'file' && n.kind !== 'hook' && n.kind !== 'route').length;
+  return {
+    stats: `${files.length} files · ${fns} functions & components${hooks.length ? ` · ${hooks.length} hooks` : ''}`,
+    entries,
+    core,
+    unused,
+  };
 }

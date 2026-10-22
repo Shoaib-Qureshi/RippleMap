@@ -28,7 +28,8 @@ export function GraphCanvas() {
     set,
   } = useStore();
   const [hover, setHover] = useState<string | null>(null);
-  const active = hover ?? selectedId;
+  // Focus fade: hover always; selection only outside flow view (there the whole flow is the focus).
+  const active = hover ?? (flowRoot ? null : selectedId);
   const activity = useMemo(() => activities(graph), [graph]);
   const visible = useMemo(
     () =>
@@ -46,10 +47,12 @@ export function GraphCanvas() {
     [graph, level, mode, focus, search, folder, hiddenKinds, init, flowRoot, flowDepth],
   );
 
-  const shared = useMemo(
-    () => (simple ? sharedNodes(visible) : new Map<string, number>()),
-    [simple, visible],
-  );
+  const shared = useMemo(() => {
+    const m = simple ? sharedNodes(visible) : new Map<string, number>();
+    // A changed shared node keeps its lines: who depends on it is exactly what the change affects.
+    for (const n of visible.nodes) if (n.status !== 'unchanged') m.delete(n.id);
+    return m;
+  }, [simple, visible]);
   // What's drawn (and exported) when nothing is hovered.
   const baseEdges = useMemo(() => simpleEdges(visible.edges, shared, null), [visible, shared]);
 

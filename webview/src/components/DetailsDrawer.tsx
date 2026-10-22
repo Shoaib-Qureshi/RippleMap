@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MAX_NOTE, type GraphNode, type PayloadNode, type Summary } from '../../../src/shared/messages';
 import { useStore } from '../store';
-import { activities, describe } from '../view';
+import { activities, describe, folderOf } from '../view';
 import { vscode } from '../vscode';
 
 export function DetailsDrawer() {
@@ -34,7 +34,7 @@ export function DetailsDrawer() {
                 {other.label}
               </button>{' '}
               <span className="fl-muted">
-                {e.kind}
+                {other.kind === 'file' ? folderOf(other.file) : `${e.kind} · ${other.file}`}
                 {e.confidence !== 'high' ? ` · ${e.confidence} confidence` : ''}
               </span>
             </li>
@@ -60,6 +60,7 @@ export function DetailsDrawer() {
           {about.facts && <span className="fl-muted">{about.facts}</span>}
         </p>
       )}
+      {about.impact && <p className="fl-warn">{about.impact}</p>}
       <AiSummary node={node} s={summaries[node.id]} />
       {doing && <p className="fl-activity">{doing}</p>}
       <div className="fl-actions">

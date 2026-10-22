@@ -413,5 +413,15 @@ button:hover {
   margin: 4px 0 6px;
 }
 .fl-warn {
-  color: var(--vscode-editorWarning-foreground);
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.fl-overview li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fl-note-text {
+  margin: 0 0 4px;
+  font-size: 0.9em;
 }

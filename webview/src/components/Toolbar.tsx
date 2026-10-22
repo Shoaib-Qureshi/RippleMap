@@ -18,6 +18,7 @@ export function Toolbar() {
     graph,
     progress,
     simple,
+    overviewOpen,
     set,
     toggleKind,
   } = useStore();
@@ -100,6 +101,14 @@ export function Toolbar() {
         </span>
       )}
       <span className="fl-spacer" />
+      {!overviewOpen && (
+        <button
+          title="Entry points, core files and unused files of this project"
+          onClick={() => set({ overviewOpen: true, selectedId: null })}
+        >
+          ☰ Start here
+        </button>
+      )}
       {!inBrowser && (
         <span className="fl-popout">
           <button
