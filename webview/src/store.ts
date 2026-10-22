@@ -24,6 +24,8 @@ export interface State {
   /** Symbol whose flow is shown (null = normal graph view). */
   flowRoot: string | null;
   flowDepth: number;
+  /** Hide lines into shared files (used by many); hover/select reveals them. */
+  simple: boolean;
   /** Instructions for the AI agent, by node id. */
   notes: Record<string, string>;
   showFlow(id: string | null): void;
@@ -57,6 +59,7 @@ export const useStore = create<State>((set, get) => ({
   selectedId: null,
   flowRoot: null,
   flowDepth: 3,
+  simple: true,
   showFlow: (id) => set(id ? { flowRoot: id, selectedId: id } : { flowRoot: null }),
   set: (patch) => set(patch),
   toggleKind: (k) => {

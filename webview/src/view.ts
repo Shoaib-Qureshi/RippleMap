@@ -147,3 +147,24 @@ export function activities(g: GraphPayload): Map<string, string> {
   }
   return out;
 }
+
+/**
+ * "Shared" nodes that many others point at (utils, ui/button, auth): id -> incoming count.
+ * ponytail: fixed threshold (used by >= 5); make it a setting if it misfires.
+ */
+export function sharedNodes(v: VisibleGraph): Map<string, number> {
+  const indeg = new Map<string, number>();
+  for (const e of v.edges) indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1);
+  return new Map([...indeg].filter(([, n]) => n >= 5));
+}
+
+/** Simple mode: drop unchanged edges into shared nodes, except those touching the active (hovered/selected) node. */
+export function simpleEdges(
+  edges: readonly PayloadEdge[],
+  shared: ReadonlyMap<string, number>,
+  active: string | null,
+): PayloadEdge[] {
+  return edges.filter(
+    (e) => e.status !== 'unchanged' || !shared.has(e.to) || e.from === active || e.to === active,
+  );
+}

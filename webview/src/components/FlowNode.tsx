@@ -9,6 +9,8 @@ export type FlowNodeData = {
   activity?: string;
   /** User's instruction for the agent. */
   note?: string;
+  /** Simple mode: incoming lines hidden because many nodes use this one. */
+  shared?: number;
 };
 
 export const STATUS_ICON: Record<Status, string> = { added: '+', removed: '−', modified: '~', unchanged: '' };
@@ -25,7 +27,7 @@ export const KIND_ICON: Record<GraphNode['kind'], string> = {
 };
 
 export function FlowNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
-  const { node, vertical, status, activity, note } = data;
+  const { node, vertical, status, activity, note, shared } = data;
   // Files: show the folder (disambiguates index.ts); symbols: show the file.
   const sub = node.kind === 'file' ? node.file.slice(0, Math.max(0, node.file.lastIndexOf('/'))) : node.file;
   return (
@@ -51,6 +53,14 @@ export function FlowNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
       {note && (
         <span className="fl-note-mark" aria-label="Has instructions for the AI">
           📝
+        </span>
+      )}
+      {shared && (
+        <span
+          className="fl-shared"
+          title={`Used by ${shared}. Lines hidden to keep the graph simple; hover to show.`}
+        >
+          ⇠{shared}
         </span>
       )}
       {status !== 'unchanged' && (

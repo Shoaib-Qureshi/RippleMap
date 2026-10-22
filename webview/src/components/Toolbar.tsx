@@ -7,8 +7,20 @@ import { KIND_ICON } from './FlowNode';
 const FUNCTION_KINDS: NodeKind[] = ['function', 'method', 'class', 'component', 'hook', 'route', 'shortcode'];
 
 export function Toolbar() {
-  const { level, mode, focus, layout, search, folder, hiddenKinds, graph, progress, set, toggleKind } =
-    useStore();
+  const {
+    level,
+    mode,
+    focus,
+    layout,
+    search,
+    folder,
+    hiddenKinds,
+    graph,
+    progress,
+    simple,
+    set,
+    toggleKind,
+  } = useStore();
   return (
     <header className="fl-toolbar" role="toolbar">
       <span className="fl-segmented" role="radiogroup" aria-label="Graph mode">
@@ -57,6 +69,13 @@ export function Toolbar() {
         <option value="TB">Top → down</option>
         <option value="cluster">Clustered by folder</option>
       </select>
+      <label
+        className="fl-check"
+        title="Hide lines into files many others use (shown as a 'used by N' badge). Hover or click a block to see all its lines."
+      >
+        <input type="checkbox" checked={simple} onChange={(e) => set({ simple: e.target.checked })} />
+        Simple
+      </label>
       <input
         type="search"
         placeholder="Search…"

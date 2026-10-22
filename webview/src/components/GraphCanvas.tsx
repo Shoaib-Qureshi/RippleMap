@@ -1,8 +1,8 @@
 import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type Node } from '@xyflow/react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { layoutGraph, NODE_H, NODE_W } from '../layout';
-import { activities, visibleGraph } from '../view';
+import { activities, sharedNodes, simpleEdges, visibleGraph } from '../view';
 import { vscode } from '../vscode';
 import { ExportPanel } from './ExportPanel';
 import { ClusterNode, FlowNode, type ClusterData, type FlowNodeData } from './FlowNode';
@@ -24,8 +24,11 @@ export function GraphCanvas() {
     flowRoot,
     flowDepth,
     notes,
+    simple,
     set,
   } = useStore();
+  const [hover, setHover] = useState<string | null>(null);
+  const active = hover ?? selectedId;
   const activity = useMemo(() => activities(graph), [graph]);
   const visible = useMemo(
     () =>
@@ -43,7 +46,17 @@ export function GraphCanvas() {
     [graph, level, mode, focus, search, folder, hiddenKinds, init, flowRoot, flowDepth],
   );
 
-  const positioned = useMemo(() => layoutGraph(visible.nodes, visible.edges, layout), [visible, layout]);
+  const shared = useMemo(
+    () => (simple ? sharedNodes(visible) : new Map<string, number>()),
+    [simple, visible],
+  );
+  // What's drawn (and exported) when nothing is hovered.
+  const baseEdges = useMemo(() => simpleEdges(visible.edges, shared, null), [visible, shared]);
+
+  const positioned = useMemo(
+    () => layoutGraph(visible.nodes, baseEdges, layout),
+    [visible, baseEdges, layout],
+  );
 
   const { nodes, edges } = useMemo(() => {
     const { positions, clusters } = positioned;
@@ -52,6 +65,10 @@ export function GraphCanvas() {
     const colored = mode === 'diff';
     const anyChange = colored && visible.nodes.some((n) => n.status !== 'unchanged');
     const warned = new Set(graph.insights.flatMap((w) => w.nodeIds));
+    const shownEdges = active ? simpleEdges(visible.edges, shared, active) : baseEdges;
+    // Hover/selection focus: the active node and its direct neighbors stay bright.
+    const near = new Set<string>(active ? [active] : []);
+    for (const e of shownEdges) if (e.from === active || e.to === active) near.add(e.from).add(e.to);
     const cls = (status: string) =>
       colored ? `status-${status}${anyChange && status === 'unchanged' ? ' dimmed' : ''}` : '';
     const nodes: Node[] = [
@@ -81,16 +98,17 @@ export function GraphCanvas() {
           status: colored ? n.status : 'unchanged',
           activity: activity.get(n.id),
           note: notes[n.id],
+          shared: shared.get(n.id),
         },
         selected: n.id === selectedId,
-        className: `${cls(n.status)}${warned.has(n.id) ? ' warn' : ''}${n.id === flowRoot ? ' flow-root' : ''}`,
+        className: `${cls(n.status)}${warned.has(n.id) ? ' warn' : ''}${n.id === flowRoot ? ' flow-root' : ''}${active && !near.has(n.id) ? ' faded' : ''}`,
       })),
     ];
-    const edges: Edge[] = visible.edges.map((e): Edge => ({
+    const edges: Edge[] = shownEdges.map((e): Edge => ({
       id: e.id,
       source: e.from,
       target: e.to,
-      className: `fl-edge kind-${e.kind} conf-${e.confidence} ${cls(e.status)}`,
+      className: `fl-edge kind-${e.kind} conf-${e.confidence} ${cls(e.status)}${!active ? '' : e.from === active || e.to === active ? ' hl' : ' faded'}`,
       animated: e.kind === 'registers',
       markerEnd: {
         type: MarkerType.ArrowClosed,
@@ -104,7 +122,20 @@ export function GraphCanvas() {
       },
     }));
     return { nodes, edges };
-  }, [visible, positioned, layout, mode, selectedId, graph.insights, flowRoot, activity, notes]);
+  }, [
+    visible,
+    positioned,
+    layout,
+    mode,
+    selectedId,
+    graph.insights,
+    flowRoot,
+    activity,
+    notes,
+    shared,
+    active,
+    baseEdges,
+  ]);
 
   if (!graph.nodes.length)
     return (
@@ -146,13 +177,15 @@ export function GraphCanvas() {
           vscode.postMessage({ type: 'openFile', file: gn.file, line: gn.range?.startLine });
         }}
         onPaneClick={() => set({ selectedId: null })}
+        onNodeMouseEnter={(_, n) => n.type === 'flow' && setHover(n.id)}
+        onNodeMouseLeave={() => setHover(null)}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={24} size={1} />
         <Controls showInteractive={false} />
         <ExportPanel
           nodes={visible.nodes}
-          edges={visible.edges}
+          edges={baseEdges}
           layout={positioned}
           vertical={layout === 'TB'}
           colored={mode === 'diff'}

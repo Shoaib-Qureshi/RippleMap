@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphPayload } from '../../src/shared/messages';
-import { activities, visibleGraph, type ViewOptions } from '../../webview/src/view';
+import { activities, sharedNodes, simpleEdges, visibleGraph, type ViewOptions } from '../../webview/src/view';
 
 const g: GraphPayload = {
   nodes: [
@@ -116,5 +116,29 @@ describe('visibleGraph', () => {
     };
     expect(activities(g2).get('a')).toBe('Claude Code (proposed): added save');
     expect(activities(g2).get('h')).toBe('Claude Code (proposed): added');
+  });
+  it('simple mode hides unchanged lines into shared nodes unless active', () => {
+    const files = ['hub', 'p1', 'p2', 'p3', 'p4', 'p5'];
+    const nodes = files.map((id) => ({
+      id,
+      kind: 'file' as const,
+      label: id,
+      file: id,
+      status: 'unchanged' as const,
+    }));
+    const edges = files.slice(1).map((from, i) => ({
+      id: from,
+      from,
+      to: 'hub',
+      kind: 'imports' as const,
+      confidence: 'high' as const,
+      status: i === 0 ? ('added' as const) : ('unchanged' as const),
+    }));
+    edges.push({ ...edges[1]!, id: 'p2-p3', to: 'p3' });
+    const shared = sharedNodes({ nodes, edges, hidden: 0 });
+    expect([...shared]).toEqual([['hub', 5]]);
+    expect(simpleEdges(edges, shared, null).map((e) => e.id)).toEqual(['p1', 'p2-p3']); // added edge stays
+    expect(simpleEdges(edges, shared, 'p4').map((e) => e.id)).toEqual(['p1', 'p4', 'p2-p3']);
+    expect(simpleEdges(edges, shared, 'hub')).toHaveLength(6);
   });
 });
