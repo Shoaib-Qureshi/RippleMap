@@ -32,9 +32,14 @@ export function resolveImport(from: string, imp: ImportFact, files: ReadonlySet<
   if (imp.kind === 'js') {
     let base: string[];
     if (imp.spec.startsWith('.')) base = [norm(path.posix.join(dir(from), imp.spec))];
-    else if (/^[@~]\//.test(imp.spec))
-      base = [imp.spec.slice(2), `src/${imp.spec.slice(2)}`]; // common tsconfig alias
-    else if (imp.spec.startsWith('/')) base = [imp.spec.slice(1)];
+    else if (/^[@~]\//.test(imp.spec)) {
+      // Common tsconfig alias (`@/x`, `~/x`): the workspace root first, then each folder above the importing
+      // file (an app in a subfolder, e.g. `web/` with its own tsconfig), each with and without `src/`.
+      const rest = imp.spec.slice(2);
+      const roots = [''];
+      for (let d = dir(from); d !== '.' && d !== '/'; d = dir(d)) roots.splice(1, 0, `${d}/`);
+      base = roots.flatMap((r) => [`${r}${rest}`, `${r}src/${rest}`]);
+    } else if (imp.spec.startsWith('/')) base = [imp.spec.slice(1)];
     else return []; // bare package
     const cands: string[] = [];
     for (const b of base) {

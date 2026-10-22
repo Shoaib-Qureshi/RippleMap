@@ -160,7 +160,8 @@
             ".venv",
             "venv",
             "wp-includes",
-            "wp-admin"
+            "wp-admin",
+            ".claude"
           ],
           "description": "Folder names ignored for edit tracking and graph indexing."
         },

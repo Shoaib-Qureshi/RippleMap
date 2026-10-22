@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolveImport } from '../../src/graph/resolve';
 import { builderFor, edgeList, fixture } from './helpers';
 
 describe('imports extractor (golden graphs)', () => {
@@ -35,5 +36,20 @@ describe('imports extractor (PHP)', () => {
       'acme-plugin.php -> includes/helpers.php (imports)',
       'acme-plugin.php -> includes/rest.php (imports)',
     ]);
+  });
+
+  it('@/ alias: workspace root first, then an app in a subfolder', () => {
+    const files = new Set([
+      'web/components/Nav.tsx',
+      'web/app/(main)/page.tsx',
+      'lib/db.ts',
+      'web/lib/db.ts',
+      'src/x.ts',
+    ]);
+    const r = (from: string, spec: string) => resolveImport(from, { kind: 'js', spec }, files);
+    expect(r('web/app/(main)/page.tsx', '@/components/Nav')).toEqual(['web/components/Nav.tsx']);
+    expect(r('web/app/(main)/page.tsx', '@/lib/db')).toEqual(['lib/db.ts']); // root wins, as before
+    expect(r('a.ts', '~/x')).toEqual(['src/x.ts']);
+    expect(r('web/app/(main)/page.tsx', '@/missing')).toEqual([]);
   });
 });

@@ -2,18 +2,23 @@ import type { Node } from '@vscode/tree-sitter-wasm';
 
 const MAX = 200;
 
-/** Comment/docstring text -> one short plain sentence (no markers, no @tags). */
+const RULE = /^[-=*#_~]{3,}$/; // separator line
+const BANNER = /^[-=*#_~]{3,}\s*\S/; // "---- Section" / "==== TITLE ====": a section heading, not a doc
+
+/** Comment/docstring text -> one short plain sentence (no markers, no @tags, no banners). */
 export function cleanDoc(raw: string): string | undefined {
   const lines = raw
     .replace(/^\s*(\/\*\*?|"""|''')/, '')
     .replace(/(\*\/|"""|''')\s*$/, '')
     .split('\n')
-    .map((l) => l.replace(/^\s*(\/\/+|#+|\*+(?!\/))\s?/, '').trim());
+    .map((l) => l.replace(/^\s*(\/\/+|#+|\*+(?!\/))\s?/, '').trim())
+    .filter((l) => !RULE.test(l) && !BANNER.test(l))
+    .map((l) => l.replace(/^!{2,}\s*|\s*!{2,}$/g, '')); // "!!! generated code !!!"
   const end = lines.findIndex((l) => l.startsWith('@') || /^(eslint|prettier|ts-|@ts-|phpcs)/.test(l));
   const text = (end === -1 ? lines : lines.slice(0, end)).join(' ').replace(/\s+/g, ' ').trim();
-  if (!text || /^(-|=|\*|#){3,}$/.test(text)) return undefined;
-  // First sentence; keep it short.
-  const sentence = /^(.+?[.!?])(\s|$)/.exec(text)?.[1] ?? text;
+  if (!/[a-z]/.test(text)) return undefined; // empty, punctuation, or an ALL-CAPS heading
+  // First sentence (at least two words, so "1." in a numbered list doesn't end it); keep it short.
+  const sentence = /^(.*?\S\s+\S.*?[.!?])(\s|$)/.exec(text)?.[1] ?? text;
   return sentence.length > MAX ? `${sentence.slice(0, MAX - 1)}…` : sentence;
 }
 

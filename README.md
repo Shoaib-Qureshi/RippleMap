@@ -70,7 +70,7 @@ Other agents (Copilot, Cursor, …) still show up through the file-change fallba
 
 | Setting | Default | |
 |---|---|---|
-| `flowlens.excludeFolders` | `node_modules`, `vendor`, `dist`, `build`, `.git`, `wp-includes`, `wp-admin`, … | Folder names ignored for tracking and indexing |
+| `flowlens.excludeFolders` | `node_modules`, `vendor`, `dist`, `build`, `.git`, `wp-includes`, `wp-admin`, `.claude`, … | Folder names ignored for tracking and indexing |
 | `flowlens.indexOnStartup` | `true` | Index the workspace graph at startup |
 | `flowlens.maxNodes` | `1500` | Nodes rendered at once (changed nodes are kept first) |
 | `flowlens.snapshotLimit` | `50` | Graph history kept for diff and scrubber |
