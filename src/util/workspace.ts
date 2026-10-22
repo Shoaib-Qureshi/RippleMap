@@ -15,10 +15,12 @@ export function toRel(uri: vscode.Uri): string | null {
   return folders().length > 1 ? `${folder.name}/${rel}` : rel;
 }
 
+/** URI for a workspace-relative id; undefined for anything that would leave the workspace. */
 export function toUri(rel: string): vscode.Uri | undefined {
   const fs = folders();
-  if (fs.length === 0) return undefined;
   const parts = rel.split('/');
+  if (fs.length === 0 || /^([a-z]:|\\|\/)/i.test(rel) || parts.some((p) => p === '..' || p === '.'))
+    return undefined;
   if (fs.length === 1) return vscode.Uri.joinPath(fs[0]!.uri, ...parts);
   const f = fs.find((x) => x.name === parts[0]);
   return f && vscode.Uri.joinPath(f.uri, ...parts.slice(1));

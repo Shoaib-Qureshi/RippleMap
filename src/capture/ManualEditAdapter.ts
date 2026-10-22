@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { AgentAdapter, EditSink } from './AgentAdapter';
 import type { RawEdit } from './EditEvent';
 import { readText, trackedRel } from '../util/workspace';
+import { SUPPORTED_EXTENSIONS } from '../parse/ParserService';
 
 const DEBOUNCE_MS = 150;
 
@@ -28,7 +29,18 @@ export class ManualEditAdapter implements AgentAdapter {
       later(rel, async () => {
         if (kind === 'delete') return emit({ source: 'manual', file: rel, kind, status: 'applied' });
         const after = await readText(uri);
-        if (after !== undefined) emit({ source: 'manual', file: rel, kind, status: 'applied', after });
+        if (after !== undefined) return emit({ source: 'manual', file: rel, kind, status: 'applied', after });
+        // A folder appeared (created or renamed into place): the watcher only reports the folder.
+        if (
+          kind !== 'create' ||
+          (await vscode.workspace.fs.stat(uri).then(
+            (s) => s.type,
+            () => 0,
+          )) !== vscode.FileType.Directory
+        )
+          return;
+        const pattern = new vscode.RelativePattern(uri, `**/*.{${SUPPORTED_EXTENSIONS.join(',')}}`);
+        for (const child of await vscode.workspace.findFiles(pattern)) fromDisk(child, 'create');
       });
     };
 
@@ -40,10 +52,9 @@ export class ManualEditAdapter implements AgentAdapter {
       watcher.onDidDelete((u) => fromDisk(u, 'delete')),
       vscode.workspace.onDidSaveTextDocument((doc) => {
         const rel = trackedRel(doc.uri);
-        if (rel)
-          later(rel, () =>
-            emit({ source: 'manual', file: rel, kind: 'modify', status: 'applied', after: doc.getText() }),
-          );
+        if (!rel) return;
+        const after = doc.getText(); // the saved text, not whatever is typed during the debounce
+        later(rel, () => emit({ source: 'manual', file: rel, kind: 'modify', status: 'applied', after }));
       }),
       { dispose: () => timers.forEach(clearTimeout) },
     );

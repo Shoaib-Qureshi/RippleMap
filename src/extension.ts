@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 import { ClaudeCodeAdapter, hookReply, type AgentNote } from './capture/ClaudeCodeAdapter';
 import type { RawEdit } from './capture/EditEvent';
@@ -35,6 +36,8 @@ export interface FlowLensApi {
 }
 
 const NOTES_KEY = 'flowlens.notes';
+/** Same cap as readText; bigger files aren't previewed. */
+const MAX_SYNC_READ = 2 * 1024 * 1024;
 const SUMMARIES_KEY = 'flowlens.summaries';
 const AI_KEY_SECRET = 'flowlens.aiKey';
 type StoredNote = AgentNote & { file: string };
@@ -48,11 +51,18 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   const tracker = new EditTracker();
   const sink = {
     emit: (e: RawEdit) => void tracker.record(e),
-    discard: (id?: string) => void tracker.discardProposed(id),
+    discard: (id?: string, session?: string) => void tracker.discardProposed(id, session),
   };
   const claude = new ClaudeCodeAdapter({
     toRel: (abs) => trackedRel(vscode.Uri.file(abs)),
     read: (abs) => readText(vscode.Uri.file(abs)),
+    readSync: (abs) => {
+      try {
+        return fs.statSync(abs).size > MAX_SYNC_READ ? undefined : fs.readFileSync(abs, 'utf8');
+      } catch {
+        return undefined; // missing: Write is creating it
+      }
+    },
   });
   // User's instructions for the agent, per graph node; sent back through the PreToolUse hook.
   let notes: Record<string, StoredNote> = ctx.workspaceState.get(NOTES_KEY) ?? {};
@@ -60,12 +70,17 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   let hookQueue = Promise.resolve();
   const hookServer = new HookServer(
     (p) => (hookQueue = hookQueue.then(() => claude.handle(p)).catch(() => undefined)),
-    (p) =>
-      hookReply(
+    (p) => {
+      claude.snapshot(p);
+      return hookReply(
         p,
         (abs) => trackedRel(vscode.Uri.file(abs)),
-        (file) => Object.values(notes).filter((n) => n.file === file),
-      ),
+        (file) =>
+          Object.entries(notes)
+            .filter(([id, n]) => n.file === file && (!graph.graph.nodes.size || graph.graph.nodes.has(id)))
+            .map(([, n]) => n),
+      );
+    },
   );
 
   const parser = await ParserService.create(vscode.Uri.joinPath(ctx.extensionUri, 'dist', 'grammars').fsPath);
@@ -76,12 +91,12 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   const webviewErrors: string[] = [];
   const onViewMessage = (m: Exclude<WebviewToHost, { type: 'ready' }>) => {
     if (m.type === 'popout') {
-      void vscode.commands.executeCommand(
-        m.target === 'browser' ? 'flowlens.openInBrowser' : 'flowlens.openInNewWindow',
-      );
+      vscode.commands
+        .executeCommand(m.target === 'browser' ? 'flowlens.openInBrowser' : 'flowlens.openInNewWindow')
+        .then(undefined, (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: ${String(e)}`));
     } else if (m.type === 'error') {
-      webviewErrors.push(m.message);
-      log.error(`webview: ${m.message}`);
+      if (webviewErrors.length < 100) webviewErrors.push(m.message.slice(0, 2000));
+      log.error(`webview: ${m.message.slice(0, 2000)}`);
     } else if (m.type === 'export') {
       saveExport(m.format, m.data).catch(
         (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: export failed: ${String(e)}`),
@@ -89,6 +104,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     } else if (m.type === 'note:set') {
       const n = graph.graph.nodes.get(m.nodeId);
       const text = m.text.trim();
+      if (text && !n) return; // removed / only in a pending proposal: keep what's stored
       if (text && n) notes[m.nodeId] = { file: n.file, label: n.label, kind: n.kind, text };
       else delete notes[m.nodeId];
       notes = { ...notes };
@@ -103,13 +119,15 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       if (!uri) return;
       const line = Math.max(0, (m.line ?? 1) - 1);
       // Never on top of the graph: use a column the panel isn't in, keep focus on the graph.
-      void vscode.window.showTextDocument(uri, {
-        viewColumn:
-          panel.viewColumn === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One,
-        selection: new vscode.Range(line, 0, line, 0),
-        preserveFocus: true,
-        preview: true,
-      });
+      void vscode.window
+        .showTextDocument(uri, {
+          viewColumn:
+            panel.viewColumn === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One,
+          selection: new vscode.Range(line, 0, line, 0),
+          preserveFocus: true,
+          preview: true,
+        })
+        .then(undefined, () => void vscode.window.showWarningMessage(`FlowLens: can't open ${m.file}.`));
     }
   };
   const panel = new PanelProvider(ctx, onViewMessage);
@@ -161,8 +179,12 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     setSummary(nodeId, { ...prev, loading: true, error: undefined });
     try {
       // `||`: an empty stored/env value falls through to the prompt.
-      const key =
-        (await ctx.secrets.get(AI_KEY_SECRET)) || process.env.OPENROUTER_API_KEY || (await promptKey());
+      const { baseUrl, model } = config().ai;
+      // The OPENROUTER_API_KEY env var only ever goes to OpenRouter, never to another configured API.
+      const envKey = /^https:\/\/openrouter\.ai(\/|$)/.test(baseUrl)
+        ? process.env.OPENROUTER_API_KEY
+        : undefined;
+      const key = (await ctx.secrets.get(AI_KEY_SECRET)) || envKey || (await promptKey());
       if (!key) throw new Error('No API key set. Run "FlowLens: Set AI API Key".');
       const text = await readText(uri);
       if (text === undefined) throw new Error(`Can't read ${n.file}.`);
@@ -173,7 +195,6 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
               .split(/\r?\n/)
               .slice(n.range.startLine - 1, n.range.endLine)
               .join('\n');
-      const { baseUrl, model } = config().ai;
       const out = await summarize(
         { baseUrl, model, key },
         { file: n.file, symbol: n.kind === 'file' ? undefined : n.label, code },
@@ -250,10 +271,12 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     vscode.workspace.onDidOpenTextDocument(seed),
     vscode.commands.registerCommand('flowlens.openPanel', () => panel.open()),
     vscode.commands.registerCommand('flowlens.openInBrowser', async () => {
-      const url = await browser.url();
-      const opened = await vscode.env.openExternal(vscode.Uri.parse(url));
+      // asExternalUri: port-forwarded URL in Remote-SSH / WSL / Codespaces (same URL locally).
+      const external = await vscode.env.asExternalUri(vscode.Uri.parse(await browser.url()));
+      browser.allowHost(external.authority);
+      const opened = await vscode.env.openExternal(external);
       if (!opened) {
-        await vscode.env.clipboard.writeText(url);
+        await vscode.env.clipboard.writeText(external.toString(true));
         void vscode.window.showInformationMessage('FlowLens: browser URL copied to the clipboard.');
       }
     }),
@@ -278,15 +301,50 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: indexing failed: ${String(e)}`),
     );
   const indexed = config().indexOnStartup ? runIndex() : Promise.resolve();
+  // Forget notes/explanations for nodes that no longer exist (renamed/deleted while VS Code was closed).
+  void indexed.then(() => {
+    const live = graph.graph.nodes;
+    if (!live.size) return;
+    const keep = <T>(r: Record<string, T>) =>
+      Object.fromEntries(Object.entries(r).filter(([id]) => live.has(id)));
+    notes = keep(notes);
+    summaries = keep(summaries);
+    void ctx.workspaceState.update(NOTES_KEY, notes);
+    void ctx.workspaceState.update(
+      SUMMARIES_KEY,
+      keep(ctx.workspaceState.get<Record<string, Summary>>(SUMMARIES_KEY) ?? {}),
+    );
+    postNotes();
+    post({ type: 'summaries', summaries });
+  });
+  // Folders added/removed: discovery files for the hook forwarder, and ids change (multi-root prefix): re-index.
+  ctx.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders((e) => {
+      try {
+        hookServer.addDirs(e.added.map((f) => f.uri.fsPath));
+        hookServer.removeDirs(e.removed.map((f) => f.uri.fsPath));
+      } catch (err) {
+        void vscode.window.showWarningMessage(
+          `FlowLens: hooks for new folders unavailable (${String(err)}).`,
+        );
+      }
+      graph.builder.facts.clear();
+      void runIndex('Re-index');
+    }),
+  );
 
   try {
     await hookServer.start((vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath));
-    await ensureForwarder(ctx); // keep the installed hook path pointing at the current forwarder
   } catch (e) {
     void vscode.window.showWarningMessage(
       `FlowLens: hook server unavailable (${String(e)}); AI edits will show as manual.`,
     );
   }
+  // Keep the installed hook path pointing at the current forwarder (separate: the server may be fine).
+  await ensureForwarder(ctx).catch(
+    (e: unknown) =>
+      void vscode.window.showWarningMessage(`FlowLens: couldn't update the hook script (${String(e)}).`),
+  );
   return { tracker, hookServer, graph, indexed, webviewErrors };
 }
 

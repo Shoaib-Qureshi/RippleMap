@@ -17,15 +17,23 @@ function normalizeDir(p) {
   if (process.platform === 'win32') s = s.toLowerCase();
   return s || '/';
 }
+/** Must match discoveryDir() in src/capture/discovery.ts: per-user on POSIX. */
 function discoveryPath(dir) {
   const hash = crypto.createHash('sha256').update(normalizeDir(dir)).digest('hex').slice(0, 16);
-  return path.join(os.tmpdir(), 'flowlens', hash + '.json');
+  const uid = typeof process.getuid === 'function' ? process.getuid() : undefined;
+  return path.join(os.tmpdir(), uid === undefined ? 'flowlens' : 'flowlens-' + uid, hash + '.json');
+}
+/** Only trust discovery files we own (another local user could plant one in a shared tmp). */
+function ownedByMe(file) {
+  if (typeof process.getuid !== 'function') return true;
+  return fs.statSync(file).uid === process.getuid();
 }
 /** Nearest ancestor of `dir` (inclusive) with a running FlowLens window. */
 function findServer(dir) {
   for (let d = path.resolve(dir); ; d = path.dirname(d)) {
     try {
-      return JSON.parse(fs.readFileSync(discoveryPath(d), 'utf8'));
+      const file = discoveryPath(d);
+      if (ownedByMe(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
     } catch {
       /* keep walking */
     }

@@ -107,4 +107,69 @@ describe('EditTracker', () => {
     expect(tracker.discardProposed('t9')).toBe(true);
     expect(tracker.edits).toHaveLength(0);
   });
+
+  it('a no-op applied edit still announces the proposal it removed (no stuck preview)', () => {
+    const { tracker } = make();
+    tracker.seed('f.ts', 'x');
+    const discarded: string[] = [];
+    tracker.on('discarded', (d) => discarded.push(...d.map((e) => e.file)));
+    const base = { source: 'claude-code', file: 'f.ts', kind: 'modify', toolUseId: 't1' } as const;
+    tracker.record({ ...base, status: 'proposed', before: 'x', after: 'x' });
+    expect(tracker.record({ ...base, status: 'applied', after: 'x' })).toBeUndefined();
+    expect(discarded).toEqual(['f.ts']);
+    expect(tracker.edits).toHaveLength(0);
+  });
+
+  it("the user's own earlier save is not absorbed into the next agent edit", () => {
+    const { tracker, tick } = make();
+    tracker.seed('b.ts', 'v0\n');
+    tracker.record({ source: 'manual', file: 'b.ts', kind: 'modify', status: 'applied', after: 'v1\n' });
+    tick(2000);
+    tracker.record({ source: 'claude-code', file: 'b.ts', kind: 'modify', status: 'applied', after: 'v2\n' });
+    expect(tracker.edits.map((e) => `${e.source}:${e.before}->${e.after}`)).toEqual([
+      'claude-code:v1\n->v2\n',
+      'manual:v0\n->v1\n',
+    ]);
+  });
+
+  it('when the watcher beat the hook, the agent event keeps the watcher id (snapshot stays attributed)', () => {
+    const { tracker, tick } = make();
+    tracker.seed('c.ts', 'a\n');
+    const w = tracker.record({
+      source: 'manual',
+      file: 'c.ts',
+      kind: 'modify',
+      status: 'applied',
+      after: 'b\n',
+    })!;
+    tick(300);
+    const h = tracker.record({
+      source: 'claude-code',
+      file: 'c.ts',
+      kind: 'modify',
+      status: 'applied',
+      after: 'b\n',
+    })!;
+    expect(h.id).toBe(w.id);
+    expect(tracker.edits).toHaveLength(1);
+    expect(tracker.get(w.id)?.source).toBe('claude-code');
+  });
+
+  it("Stop only drops that session's proposals", () => {
+    const { tracker } = make();
+    const p = { source: 'claude-code', kind: 'modify', status: 'proposed', after: 'x' } as const;
+    tracker.record({ ...p, file: 'a.ts', sessionId: 'A' });
+    tracker.record({ ...p, file: 'b.ts', sessionId: 'B' });
+    tracker.discardProposed(undefined, 'A');
+    expect(tracker.edits.map((e) => e.file)).toEqual(['b.ts']);
+  });
+
+  it('deleting a folder forgets the baselines of the files under it', () => {
+    const { tracker } = make();
+    tracker.seed('old/a.ts', 'a');
+    tracker.seed('older.ts', 'b');
+    tracker.record({ source: 'manual', file: 'old', kind: 'delete', status: 'applied' });
+    expect(tracker.knownText('old/a.ts')).toBeUndefined();
+    expect(tracker.knownText('older.ts')).toBe('b');
+  });
 });

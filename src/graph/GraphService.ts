@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { hashText } from './hash';
 import type { GraphBuilder } from './GraphBuilder';
 import { diffGraphs, type GraphDiff } from './GraphDiffer';
 import { insights, type Insight } from './insights';
@@ -45,6 +46,8 @@ export class GraphService extends EventEmitter<{ update: [] }> {
   }
 
   setFile(file: string, text: string, editId?: string): void {
+    // Same content again (e.g. watcher and hook both report one edit): no rebuild, no empty snapshot.
+    if (this.builder.facts.get(file)?.nodes[0]?.hash === hashText(text)) return;
     if (this.builder.setFile(file, text)) this.schedule(file, editId);
   }
 

@@ -52,7 +52,10 @@ export class PanelProvider implements vscode.Disposable {
       for (const msg of this.latest.values()) void panel.webview.postMessage(msg);
       this.readyWaiters.splice(0).forEach((resolve) => resolve());
     });
-    panel.onDidDispose(() => (this.panel = undefined));
+    panel.onDidDispose(() => {
+      this.panel = undefined;
+      this.readyWaiters.splice(0).forEach((resolve) => resolve()); // closed before it loaded
+    });
     return new Promise((resolve) => this.readyWaiters.push(resolve));
   }
 

@@ -61,8 +61,12 @@ export class GraphBuilder {
     return !!f;
   }
 
+  /** Removes a file, or everything under it when `file` is a folder (watchers report only the folder). */
   removeFile(file: string): boolean {
-    return this.facts.delete(file);
+    if (this.facts.delete(file)) return true;
+    let any = false;
+    for (const f of [...this.facts.keys()]) if (f.startsWith(`${file}/`)) any = this.facts.delete(f) || any;
+    return any;
   }
 
   build(facts: ReadonlyMap<string, FileFacts> = this.facts): Graph {

@@ -13,7 +13,22 @@ export function forwarderCommand(forwarderPath: string): string {
   return `node "${forwarderPath.replace(/\\/g, '/')}"`;
 }
 
-const isOurs = (g: HookGroup) => g.hooks?.some((h) => h.command?.includes(MARKER)) ?? false;
+const isOursHook = (h: unknown) =>
+  typeof h === 'object' && h !== null && String((h as { command?: unknown }).command ?? '').includes(MARKER);
+
+/**
+ * An event's groups minus FlowLens hooks: only our commands are dropped (a user hook sharing a group
+ * stays), groups left empty go. Non-array / malformed values are returned untouched.
+ */
+function withoutOurs(groups: unknown): unknown {
+  if (!Array.isArray(groups)) return groups;
+  return groups.flatMap((g: unknown) => {
+    const hooks = (g as HookGroup | null)?.hooks;
+    if (!Array.isArray(hooks) || !hooks.some(isOursHook)) return [g];
+    const kept = hooks.filter((h) => !isOursHook(h));
+    return kept.length ? [{ ...(g as HookGroup), hooks: kept }] : [];
+  });
+}
 
 /**
  * Returns settings with FlowLens hook groups (re)installed. Existing non-FlowLens hooks are kept untouched;
@@ -22,7 +37,9 @@ const isOurs = (g: HookGroup) => g.hooks?.some((h) => h.command?.includes(MARKER
 export function mergeHooks(settings: Json, command: string): Json {
   const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
   for (const event of HOOK_EVENTS) {
-    const groups = ((hooks[event] as HookGroup[] | undefined) ?? []).filter((g) => !isOurs(g));
+    const existing = withoutOurs(hooks[event] ?? []);
+    if (!Array.isArray(existing)) continue; // not a list: the user's own format, leave it alone
+    const groups = existing;
     const group: HookGroup = {
       hooks: [{ type: 'command', command, timeout: 5 } as { type: string; command: string }],
     };
@@ -36,9 +53,8 @@ export function mergeHooks(settings: Json, command: string): Json {
 export function removeHooks(settings: Json): Json {
   const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
   for (const [event, groups] of Object.entries(hooks)) {
-    if (!Array.isArray(groups)) continue;
-    const kept = (groups as HookGroup[]).filter((g) => !isOurs(g));
-    if (kept.length) hooks[event] = kept;
+    const kept = withoutOurs(groups);
+    if (!Array.isArray(kept) || kept.length) hooks[event] = kept;
     else delete hooks[event];
   }
   const out: Json = { ...settings, hooks };

@@ -2,8 +2,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import * as path from 'node:path';
-import { discoveryPath } from './discovery';
+import { discoveryDir, discoveryPath } from './discovery';
 
 const MAX_BODY = 5 * 1024 * 1024;
 export const TOKEN_HEADER = 'x-flowlens-token';
@@ -34,18 +33,36 @@ export class HookServer {
       server.once('error', reject);
       server.listen(0, '127.0.0.1', () => resolve());
     });
+    this.addDirs(projectDirs);
+  }
+
+  /** Writes discovery files so the forwarder finds us from these folders (also for folders added later). */
+  addDirs(dirs: string[]): void {
     const info = JSON.stringify({ port: this.port, token: this.token, pid: process.pid });
-    for (const dir of projectDirs) {
+    const home = discoveryDir();
+    fs.mkdirSync(home, { recursive: true, mode: 0o700 });
+    if (typeof process.getuid === 'function' && fs.statSync(home).uid !== process.getuid())
+      throw new Error(`${home} belongs to another user; not writing hook discovery files there.`);
+    for (const dir of dirs) {
       const file = discoveryPath(dir);
-      fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, info, { encoding: 'utf8', mode: 0o600 });
-      this.written.push(file);
+      if (!this.written.includes(file)) this.written.push(file);
     }
+  }
+
+  removeDirs(dirs: string[]): void {
+    const files = dirs.map(discoveryPath);
+    this.unlinkOwn(files);
+    this.written = this.written.filter((f) => !files.includes(f));
   }
 
   dispose(): void {
     this.server?.close();
-    for (const f of this.written) {
+    this.unlinkOwn(this.written);
+  }
+
+  private unlinkOwn(files: string[]): void {
+    for (const f of files) {
       try {
         // Only remove our own file: another window may have taken over the same folder.
         if (JSON.parse(fs.readFileSync(f, 'utf8')).token === this.token) fs.unlinkSync(f);

@@ -22,6 +22,9 @@ const THEME = `
 export class BrowserBridge {
   readonly token = randomBytes(24).toString('hex');
   private server: http.Server | undefined;
+  private starting: Promise<void> | undefined;
+  /** Extra Host values to accept (port-forwarded URL in Remote-SSH / WSL / Codespaces). */
+  private readonly hosts = new Set<string>();
   private readonly clients = new Set<http.ServerResponse>();
   private readonly latest = new Map<HostToWebview['type'], HostToWebview>();
 
@@ -43,15 +46,25 @@ export class BrowserBridge {
 
   /** Starts the server on first use; returns the URL to open. */
   async url(): Promise<string> {
-    if (!this.server) {
+    // One shared start: concurrent calls (double-clicks) all wait for the real port.
+    this.starting ??= new Promise<void>((resolve, reject) => {
       const server = http.createServer((req, res) => this.handle(req, res));
-      this.server = server;
-      await new Promise<void>((resolve, reject) => {
-        server.once('error', reject);
-        server.listen(0, '127.0.0.1', () => resolve());
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', () => {
+        this.server = server;
+        resolve();
       });
-    }
+    }).catch((e: unknown) => {
+      this.starting = undefined; // let the next call retry
+      throw e;
+    });
+    await this.starting;
     return `http://127.0.0.1:${this.port}/?t=${this.token}`;
+  }
+
+  /** Accepts requests addressed to `authority` too (e.g. the `asExternalUri` of our URL). */
+  allowHost(authority: string): void {
+    this.hosts.add(authority);
   }
 
   post(msg: HostToWebview): void {
@@ -66,6 +79,7 @@ export class BrowserBridge {
   }
 
   private broadcast(msg: HostToWebview): void {
+    if (!this.clients.size) return; // nobody listening: `latest` is replayed on connect
     const frame = `data: ${JSON.stringify(msg)}\n\n`;
     for (const c of this.clients) c.write(frame);
   }
@@ -79,7 +93,9 @@ export class BrowserBridge {
   private handle(req: http.IncomingMessage, res: http.ServerResponse): void {
     const end = (code: number, body = ''): void => void res.writeHead(code).end(body);
     // DNS-rebinding guard: only answer requests addressed to our own loopback origin.
-    if (req.headers.host !== `127.0.0.1:${this.port}`) return end(403);
+    const host = req.headers.host ?? '';
+    if (host !== `127.0.0.1:${this.port}` && host !== `localhost:${this.port}` && !this.hosts.has(host))
+      return end(403);
     const url = new URL(req.url ?? '/', `http://127.0.0.1:${this.port}`);
 
     const type = ASSETS[url.pathname];

@@ -49,6 +49,9 @@ export class EditTracker extends EventEmitter<Events> {
     const ts = this.now();
     const after = raw.kind === 'delete' ? '' : raw.after;
     let before = raw.before ?? this.known.get(raw.file) ?? (raw.kind === 'create' ? '' : undefined);
+    /** Id of the watcher event this agent event replaces (the graph snapshot already points at it). */
+    let reuseId: string | undefined;
+    let proposal: EditEvent | undefined;
 
     if (raw.status === 'applied') {
       const recent = (pred: (e: EditEvent) => boolean) =>
@@ -59,9 +62,14 @@ export class EditTracker extends EventEmitter<Events> {
         const i = recent((e) => e.source !== 'manual' && e.status === 'applied' && e.after === after);
         if (i >= 0) return undefined;
       } else {
-        // The watcher beat the hook: relabel that entry as the agent's.
-        const i = recent((e) => e.source === 'manual' && e.status === 'applied');
-        if (i >= 0) before = raw.before ?? this.edits.splice(i, 1)[0]!.before;
+        // The watcher beat the hook: relabel that entry as the agent's. Only if it saw the same final
+        // text; otherwise it's the user's own earlier save and must stay theirs.
+        const i = recent((e) => e.source === 'manual' && e.status === 'applied' && e.after === after);
+        if (i >= 0) {
+          const watched = this.edits.splice(i, 1)[0]!;
+          before = raw.before ?? watched.before;
+          reuseId = watched.id;
+        }
         // Promote the matching proposal: it is replaced by this applied event.
         const p = this.edits.findIndex(
           (e) =>
@@ -70,11 +78,19 @@ export class EditTracker extends EventEmitter<Events> {
             (!raw.toolUseId || e.toolUseId === raw.toolUseId),
         );
         if (p >= 0) {
-          const proposal = this.edits.splice(p, 1)[0]!;
+          proposal = this.edits.splice(p, 1)[0]!;
           before = raw.before ?? before ?? proposal.before;
         }
       }
-      if (after !== undefined && before === after) return undefined; // no-op (e.g. watcher after save)
+      if (after !== undefined && before === after) {
+        // No-op (e.g. watcher after save). A proposal we just removed must still be announced, or its
+        // pending preview would stay on screen.
+        if (proposal) {
+          this.emit('discarded', [proposal]);
+          this.emit('change');
+        }
+        return undefined;
+      }
     }
 
     const diff = before !== undefined && after !== undefined ? lineDiff(before, after) : undefined;
@@ -82,7 +98,7 @@ export class EditTracker extends EventEmitter<Events> {
       ...raw,
       before,
       after,
-      id: `e${++this.seq}`,
+      id: reuseId ?? `e${++this.seq}`,
       ts,
       added: diff?.added,
       removed: diff?.removed,
@@ -92,8 +108,10 @@ export class EditTracker extends EventEmitter<Events> {
     if (this.edits.length > MAX_EDITS) this.edits.length = MAX_EDITS;
 
     if (raw.status === 'applied') {
-      if (raw.kind === 'delete') this.known.delete(raw.file);
-      else if (after !== undefined) this.known.set(raw.file, after);
+      if (raw.kind === 'delete') {
+        this.known.delete(raw.file);
+        for (const f of [...this.known.keys()]) if (f.startsWith(`${raw.file}/`)) this.known.delete(f);
+      } else if (after !== undefined) this.known.set(raw.file, after);
       this.emit('applied', ev);
     } else {
       this.emit('proposed', ev);
@@ -102,12 +120,16 @@ export class EditTracker extends EventEmitter<Events> {
     return ev;
   }
 
-  /** Drops proposals that never landed (rejected / failed tool call). */
-  discardProposed(toolUseId?: string): boolean {
+  /** Drops proposals that never landed (rejected / failed tool call; `sessionId`: that agent session's). */
+  discardProposed(toolUseId?: string, sessionId?: string): boolean {
     const dropped: EditEvent[] = [];
     for (let i = this.edits.length - 1; i >= 0; i--) {
       const e = this.edits[i]!;
-      if (e.status === 'proposed' && (!toolUseId || e.toolUseId === toolUseId))
+      if (
+        e.status === 'proposed' &&
+        (!toolUseId || e.toolUseId === toolUseId) &&
+        (!sessionId || !e.sessionId || e.sessionId === sessionId)
+      )
         dropped.push(...this.edits.splice(i, 1));
     }
     if (dropped.length) {

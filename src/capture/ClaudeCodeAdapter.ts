@@ -58,6 +58,8 @@ export interface FileAccess {
   /** Workspace-relative path for an absolute path, or null if not a tracked workspace file. */
   toRel(abs: string): string | null;
   read(abs: string): Promise<string | undefined>;
+  /** Synchronous read for PreToolUse: must happen before we answer the hook, or the tool may write first. */
+  readSync?(abs: string): string | undefined;
 }
 
 export interface AgentNote {
@@ -100,6 +102,8 @@ export function hookReply(
 export class ClaudeCodeAdapter implements AgentAdapter {
   readonly id = 'claude-code';
   private sink: EditSink | undefined;
+  /** File text captured before replying to PreToolUse (undefined value = file didn't exist). */
+  private readonly before = new WeakMap<Obj, string | undefined>();
 
   constructor(private readonly files: FileAccess) {}
 
@@ -108,12 +112,25 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     return { dispose: () => (this.sink = undefined) };
   }
 
+  /**
+   * Called synchronously before the hook gets its reply. Replying unblocks the tool, so reading the
+   * current file later (in `handle`, behind the queue) could see the agent's write instead.
+   */
+  snapshot(p: Obj): void {
+    if (p.hook_event_name !== 'PreToolUse' || !this.files.readSync) return;
+    const abs = str(obj(p.tool_input)?.file_path);
+    if (abs && (EDIT_TOOLS as readonly string[]).includes(str(p.tool_name) ?? '') && this.files.toRel(abs))
+      this.before.set(p, this.files.readSync(abs));
+  }
+
   async handle(p: Obj): Promise<void> {
     const sink = this.sink;
     if (!sink) return;
     const event = str(p.hook_event_name);
     const toolUseId = str(p.tool_use_id);
-    if (event === 'Stop') return void sink.discard();
+    // Stop ends one session's response: only its proposals (another session may be mid-permission-prompt).
+    // Known gap: rejecting with Esc is an interrupt and sends no Stop; the proposal clears on the next one.
+    if (event === 'Stop') return void sink.discard(undefined, str(p.session_id));
     if (event === 'PostToolUseFailure' || event === 'PermissionDenied') return void sink.discard(toolUseId);
 
     const tool = str(p.tool_name) ?? '';
@@ -125,7 +142,7 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     const base = { source: 'claude-code', file, tool, toolUseId, sessionId: str(p.session_id) } as const;
 
     if (event === 'PreToolUse') {
-      const current = await this.files.read(abs);
+      const current = this.before.has(p) ? this.before.get(p) : await this.files.read(abs);
       const proposed = proposedText(tool, input, current ?? '');
       if (!proposed) return;
       const e: RawEdit = {

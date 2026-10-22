@@ -12,6 +12,7 @@ export async function ensureForwarder(ctx: vscode.ExtensionContext): Promise<vsc
 }
 
 async function editSettings(
+  ctx: vscode.ExtensionContext,
   folder: vscode.WorkspaceFolder,
   change: (s: Record<string, unknown>) => Record<string, unknown>,
 ) {
@@ -33,9 +34,13 @@ async function editSettings(
     } catch (e) {
       throw new Error(`${file.fsPath} is not valid JSON (${String(e)}); not touching it.`, { cause: e });
     }
+    // Backup in the extension's own storage, not the repo: settings.local.json often holds keys,
+    // and a copy next to it isn't covered by the gitignore that covers the original.
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backups = vscode.Uri.joinPath(ctx.globalStorageUri, 'settings-backups');
+    await vscode.workspace.fs.createDirectory(backups);
     await vscode.workspace.fs.writeFile(
-      vscode.Uri.joinPath(dir, `settings.local.json.flowlens-backup-${stamp}`),
+      vscode.Uri.joinPath(backups, `${folder.name.replace(/[^\w.-]/g, '_')}-settings.local.json.${stamp}`),
       raw,
     );
   }
@@ -55,7 +60,7 @@ export function registerHookCommands(ctx: vscode.ExtensionContext): vscode.Dispo
       const cmd = install ? forwarderCommand((await ensureForwarder(ctx)).fsPath) : '';
       const written = [];
       for (const f of folders)
-        written.push(await editSettings(f, (s) => (install ? mergeHooks(s, cmd) : removeHooks(s))));
+        written.push(await editSettings(ctx, f, (s) => (install ? mergeHooks(s, cmd) : removeHooks(s))));
       void vscode.window.showInformationMessage(
         install
           ? `FlowLens: Claude Code hooks installed in ${written.map((u) => vscode.workspace.asRelativePath(u)).join(', ')}. Start a new Claude Code session to pick them up.`

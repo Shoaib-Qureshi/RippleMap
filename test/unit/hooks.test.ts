@@ -73,6 +73,26 @@ describe('proposedText', () => {
 });
 
 describe('ClaudeCodeAdapter', () => {
+  it('PreToolUse uses the text captured before replying, even if the tool already wrote', async () => {
+    const disk: Record<string, string> = { '/w/a.ts': 'one\n' };
+    const out: RawEdit[] = [];
+    const a = new ClaudeCodeAdapter({
+      toRel: (p) => (p.startsWith('/w/') ? p.slice(3) : null),
+      read: async (p) => disk[p],
+      readSync: (p) => disk[p],
+    });
+    a.start({ emit: (e) => out.push(e), discard: () => undefined });
+    const pre = {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: '/w/a.ts', old_string: 'one', new_string: 'two' },
+    };
+    a.snapshot(pre); // what the hook server does before answering
+    disk['/w/a.ts'] = 'two\n'; // the tool wins the race
+    await a.handle(pre);
+    expect(out[0]).toMatchObject({ status: 'proposed', before: 'one\n', after: 'two\n', uncertain: false });
+  });
+
   it('maps Pre/Post/Failure payloads to proposed/applied/discard', async () => {
     const disk: Record<string, string> = { '/w/a.ts': 'one\n' };
     const out: (RawEdit | string)[] = [];
@@ -132,6 +152,34 @@ describe('hooks config merge', () => {
     expect((once.hooks as Record<string, unknown>).Stop).toBeDefined();
     expect(removeHooks(once)).toEqual(settings);
     expect(removeHooks(mergeHooks({}, cmd))).toEqual({});
+  });
+});
+
+describe('hooks config: user hooks are never lost', () => {
+  const cmd = forwarderCommand('/x/flowlens-hook-forwarder.js');
+  it('keeps a user hook that shares a group with ours, and leaves malformed values alone', () => {
+    const settings = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Edit',
+            hooks: [
+              { type: 'command', command: cmd },
+              { type: 'command', command: 'mine' },
+            ],
+          },
+        ],
+        Stop: 'not-a-list',
+      },
+    };
+    const merged = mergeHooks(settings, cmd) as { hooks: Record<string, unknown> };
+    expect(JSON.stringify(merged.hooks.PreToolUse)).toContain('"mine"');
+    expect(merged.hooks.Stop).toBe('not-a-list');
+    const removed = removeHooks(merged) as { hooks: Record<string, unknown> };
+    expect(removed.hooks.PreToolUse).toEqual([
+      { matcher: 'Edit', hooks: [{ type: 'command', command: 'mine' }] },
+    ]);
+    expect(removed.hooks.Stop).toBe('not-a-list');
   });
 });
 
