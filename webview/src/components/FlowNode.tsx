@@ -37,6 +37,7 @@ export function FlowNode({ data, selected }: NodeProps<Node<FlowNodeData>>) {
         `${node.kind} · ${node.file}${status !== 'unchanged' ? ` · ${status}` : ''}`,
         activity,
         note && `📝 For the AI: ${note}`,
+        'Click for details · double-click to open the code',
       ]
         .filter(Boolean)
         .join('\n')}

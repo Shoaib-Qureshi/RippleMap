@@ -56,6 +56,11 @@ export class PanelProvider implements vscode.Disposable {
     return new Promise((resolve) => this.readyWaiters.push(resolve));
   }
 
+  /** Editor column the panel is in (undefined when closed). */
+  get viewColumn(): vscode.ViewColumn | undefined {
+    return this.panel?.viewColumn;
+  }
+
   /** Focuses the panel (so editor commands like "move to new window" act on it). */
   reveal(): void {
     this.panel?.reveal(undefined, false);

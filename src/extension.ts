@@ -102,9 +102,13 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       const uri = toUri(m.file);
       if (!uri) return;
       const line = Math.max(0, (m.line ?? 1) - 1);
+      // Never on top of the graph: use a column the panel isn't in, keep focus on the graph.
       void vscode.window.showTextDocument(uri, {
-        viewColumn: vscode.ViewColumn.One,
+        viewColumn:
+          panel.viewColumn === vscode.ViewColumn.One ? vscode.ViewColumn.Two : vscode.ViewColumn.One,
         selection: new vscode.Range(line, 0, line, 0),
+        preserveFocus: true,
+        preview: true,
       });
     }
   };

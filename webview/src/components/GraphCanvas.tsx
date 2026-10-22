@@ -173,12 +173,14 @@ export function GraphCanvas() {
         minZoom={0.05}
         nodesConnectable={false}
         onlyRenderVisibleElements
-        onNodeClick={(_, n) => {
+        // Click = inspect (details panel); opening code is explicit: double-click or "Open in editor".
+        onNodeClick={(_, n) => n.type === 'flow' && set({ selectedId: (n.data as FlowNodeData).node.id })}
+        onNodeDoubleClick={(_, n) => {
           if (n.type !== 'flow') return;
           const gn = (n.data as FlowNodeData).node;
-          set({ selectedId: gn.id });
           vscode.postMessage({ type: 'openFile', file: gn.file, line: gn.range?.startLine });
         }}
+        zoomOnDoubleClick={false}
         onPaneClick={() => set({ selectedId: null })}
         onNodeMouseEnter={(_, n) => n.type === 'flow' && setHover(n.id)}
         onNodeMouseLeave={() => setHover(null)}
@@ -197,6 +199,7 @@ export function GraphCanvas() {
           pannable
           zoomable
           className="fl-minimap"
+          style={{ width: 140, height: 90 }}
           nodeClassName={(n) => (n.type === 'cluster' ? 'mm-cluster' : 'mm-node')}
         />
       </ReactFlow>
