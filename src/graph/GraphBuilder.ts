@@ -48,6 +48,12 @@ export class GraphBuilder {
       if (dir) meta.directive = dir;
       for (const x of this.extractors)
         if (x.languages.includes(lang)) x.extract({ file, lang, text, root: tree.rootNode, facts });
+    } catch (e) {
+      // One pathological file (e.g. 5000-deep expression chains overflow the stack) must not abort
+      // indexing or a live update: keep just the file node and say why.
+      facts.nodes.length = 1;
+      facts.imports.length = facts.refs.length = facts.edges.length = 0;
+      facts.nodes[0]!.meta!.error = e instanceof RangeError ? 'too deeply nested to analyse' : String(e);
     } finally {
       tree.delete();
     }

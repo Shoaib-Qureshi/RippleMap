@@ -29,8 +29,10 @@ export interface GraphView {
 export class GraphService extends EventEmitter<{ update: [] }> {
   graph: Graph = emptyGraph();
   readonly snapshots: SnapshotStore;
-  /** Index into snapshots.list being inspected; null = follow the latest. */
-  selected: number | null = null;
+  /** Snapshot being inspected (by id: indexes shift when old snapshots are evicted); null = follow the latest. */
+  private selectedId: string | null = null;
+  /** Proposed text behind `pending`, so the preview can be recomputed when other files change. */
+  private pendingText: string | undefined;
   /** Latest proposed edit being previewed. ponytail: one at a time; the newest proposal wins. */
   pending: PendingPreview | null = null;
   private timer: NodeJS.Timeout | undefined;
@@ -66,6 +68,9 @@ export class GraphService extends EventEmitter<{ update: [] }> {
     if (label || edits.length || files.length) {
       this.snapshots.add(this.graph, label ?? editLabel(files), edits);
     }
+    // The preview was built from the facts of its time: rebuild it, or other files' edits look reverted.
+    if (this.pending)
+      Object.assign(this.pending, previewGraph(this.builder, this.pending.file, this.pendingText));
     this.emit('update');
   }
 
@@ -74,15 +79,23 @@ export class GraphService extends EventEmitter<{ update: [] }> {
     if (this.timer) this.rebuildNow();
   }
 
+  /** Index into snapshots.list being inspected; null = following the latest (or the selection was evicted). */
+  get selected(): number | null {
+    if (this.selectedId === null) return null;
+    const i = this.snapshots.list.findIndex((s) => s.id === this.selectedId);
+    return i < 0 ? null : i;
+  }
+
   select(index: number | null): void {
-    const n = this.snapshots.list.length;
-    this.selected = index === null || index >= n - 1 ? null : Math.max(0, index);
+    const list = this.snapshots.list;
+    this.selectedId = index === null || index >= list.length - 1 ? null : list[Math.max(0, index)]!.id;
     this.emit('update');
   }
 
   setPending(p: Omit<PendingPreview, 'graph' | 'facts'>, text: string | undefined): void {
     this.flush(); // preview against an up-to-date current graph
     this.pending = { ...p, ...previewGraph(this.builder, p.file, text) };
+    this.pendingText = text;
     this.emit('update');
   }
 
@@ -100,6 +113,7 @@ export class GraphService extends EventEmitter<{ update: [] }> {
     )
       return false;
     this.pending = null;
+    this.pendingText = undefined;
     this.emit('update');
     return true;
   }
@@ -123,7 +137,8 @@ export class GraphService extends EventEmitter<{ update: [] }> {
     const i = this.selected ?? list.length - 1;
     const step = list[i] ?? null;
     const after = step?.graph ?? this.graph;
-    const base = list[i - 1]?.graph ?? after;
+    // Oldest kept step after eviction: its predecessor is gone from the list but kept on the snapshot.
+    const base = list[i - 1]?.graph ?? step?.base ?? after;
     const diff = diffGraphs(base, after);
     // Dangling-call check needs current facts, which only match the latest snapshot.
     const facts = i === list.length - 1 || list.length === 0 ? this.builder.facts : undefined;

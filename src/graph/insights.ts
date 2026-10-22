@@ -71,19 +71,22 @@ export function insights(
 ): Insight[] {
   const out: Insight[] = [];
   const label = (id: string) => (after.nodes.get(id) ?? base.nodes.get(id))?.label ?? id;
-  const added = new Set(diff.addedEdges);
 
-  // 1. New cycles: an SCC that contains at least one edge added by this change.
+  // 1. New cycles: an SCC with an edge added by this change that wasn't already one cycle before
+  //    (adding an edge inside an existing cycle is not a new cycle).
+  const addedEdges = diff.addedEdges.map((id) => after.edges.get(id)).filter((e) => e !== undefined);
   for (const [kinds, what] of [
     [new Set<EdgeKind>(['imports']), 'circular import'],
     [new Set<EdgeKind>(['calls']), 'call cycle'],
   ] as const) {
+    const baseComp = new Map<string, number>();
+    sccs(base, kinds).forEach((c, i) => c.forEach((id) => baseComp.set(id, i)));
     for (const comp of sccs(after, kinds)) {
       const inComp = new Set(comp);
-      const isNew = [...after.edges.values()].some(
-        (e) => added.has(e.id) && kinds.has(e.kind) && inComp.has(e.from) && inComp.has(e.to),
-      );
-      if (isNew)
+      const hasAdded = addedEdges.some((e) => kinds.has(e.kind) && inComp.has(e.from) && inComp.has(e.to));
+      const b0 = baseComp.get(comp[0]!);
+      const existed = b0 !== undefined && comp.every((id) => baseComp.get(id) === b0);
+      if (hasAdded && !existed)
         out.push({
           kind: 'cycle',
           message: `New ${what}: ${[...comp, comp[0]!].map(label).join(' → ')}`,
@@ -101,8 +104,14 @@ export function insights(
   };
   const inBefore = incoming(base);
   const inAfter = incoming(after);
-  for (const n of after.nodes.values()) {
+  // Edges can also vanish because a name became ambiguous (a new same-named function elsewhere) while the
+  // call is still in the code: only call it orphaned when nothing references the name. Needs current
+  // facts, so this check runs for the latest state only.
+  const referenced = new Set<string>();
+  for (const f of afterFacts?.values() ?? []) for (const r of f.refs) referenced.add(r.name);
+  for (const n of afterFacts ? after.nodes.values() : []) {
     if (n.kind === 'file' || ENTRY_KINDS.has(n.kind) || n.meta?.anonymous) continue;
+    if (referenced.has(String(n.meta?.name ?? n.label))) continue;
     if ((inBefore.get(n.id) ?? 0) > 0 && !inAfter.get(n.id))
       out.push({ kind: 'orphan', message: `${n.label} no longer has any callers`, nodeIds: [n.id] });
   }

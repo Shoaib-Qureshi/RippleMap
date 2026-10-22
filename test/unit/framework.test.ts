@@ -11,15 +11,15 @@ describe('framework flow layer (golden graphs)', () => {
     expect(flowEdges(g)).toMatchInlineSnapshot(`
       [
         "function:acme_register_post_types -> hook:acme_after_register (calls)",
-        "function:closure@L16 -> function:acme_footer_html (calls)",
-        "function:closure@L2 -> route:GET /acme/v1/items (registers)",
+        "function:closure:rest_api_init callback -> route:GET /acme/v1/items (registers)",
+        "function:closure:wp_footer callback -> function:acme_footer_html (calls)",
         "hook:acme_after_register -> method:Acme_Admin.flush (registers)",
         "hook:admin_menu -> method:Acme_Admin.add_menu (registers)",
         "hook:init -> function:acme_register_post_types (registers)",
-        "hook:rest_api_init -> function:closure@L2 (registers)",
+        "hook:rest_api_init -> function:closure:rest_api_init callback (registers)",
         "hook:the_content -> function:acme_append_footer (registers)",
         "hook:woocommerce_checkout_order_processed -> function:acme_on_order (registers)",
-        "hook:wp_footer -> function:closure@L16 (registers)",
+        "hook:wp_footer -> function:closure:wp_footer callback (registers)",
         "route:GET /acme/v1/items -> function:acme_rest_list_items (registers)",
         "shortcode:[acme_box] -> function:acme_box_shortcode (registers)",
       ]
@@ -35,10 +35,10 @@ describe('framework flow layer (golden graphs)', () => {
     const g = (await builderFor(fixture('js-app'))).build();
     expect(flowEdges(g)).toMatchInlineSnapshot(`
       [
-        "function:closure@L12 -> function:createUser (calls)",
+        "function:closure:POST /users handler -> function:createUser (calls)",
         "route:GET /api/items -> function:GET (registers)",
         "route:GET /health -> function:health (registers)",
-        "route:POST /users -> function:closure@L12 (registers)",
+        "route:POST /users -> function:closure:POST /users handler (registers)",
       ]
     `);
   });
@@ -72,5 +72,41 @@ describe('framework flow layer (golden graphs)', () => {
     expect(d.removedEdges).toEqual([
       'wp::hook::init->acme-plugin.php::function::acme_register_post_types::registers',
     ]);
+  });
+});
+
+describe('closure ids are stable and unique', () => {
+  const build = async (file: string, text: string) => {
+    const { GraphBuilder } = await import('../../src/graph/GraphBuilder');
+    const { extractors } = await import('../../src/graph/extractors');
+    const { getParser } = await import('./helpers');
+    const b = new GraphBuilder(await getParser(), extractors);
+    b.setFile(file, text);
+    const g = b.build();
+    return {
+      nodes: [...g.nodes.keys()].filter((id) => id.includes('closure')).sort(),
+      edges: [...g.edges.values()]
+        .map((e) => `${e.from.split('::').pop()} -> ${e.to.split('::').pop()}`)
+        .sort(),
+    };
+  };
+
+  it('inserting a line above a closure keeps its id (no removed+added)', async () => {
+    const php = "<?php\nadd_action('init', function () { helper(); });\nfunction helper() {}\n";
+    const js = "app.get('/a', (req, res) => { go(); });\nfunction go() {}\n";
+    expect(await build('p.php', php.replace('<?php\n', '<?php\n// note\n'))).toEqual(
+      await build('p.php', php),
+    );
+    expect(await build('s.js', `// note\n${js}`)).toEqual(await build('s.js', js));
+  });
+
+  it('two closures on one line get separate nodes and the right edges', async () => {
+    const g = await build(
+      'p.php',
+      "<?php\nadd_action('a', function(){ fa(); }); add_action('b', function(){ fb(); });\nfunction fa(){}\nfunction fb(){}\n",
+    );
+    expect(g.nodes).toHaveLength(2);
+    expect(g.edges).toContain('closure:a callback -> fa');
+    expect(g.edges).toContain('closure:b callback -> fb');
   });
 });

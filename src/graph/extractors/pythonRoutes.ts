@@ -18,15 +18,17 @@ export const pythonRoutesExtractor: Extractor = {
     const route = (verb: string, args: Node | null, at: Node, handler: string | undefined) => {
       const path = stringValue(args?.namedChildren[0]);
       if (!path?.startsWith('/') || !handler) return;
-      let method = verb === 'route' || verb === 'api_route' ? 'GET' : verb.toUpperCase();
-      const methods = kwarg(args, 'methods');
-      const first = stringValue(methods?.namedChildren[0]);
-      if (first) method = first.toUpperCase();
-      const id = entryNode(facts, 'route', `${file}::route::${method} ${path}`, `${method} ${path}`, at, {
-        method,
-        path,
-      });
-      link(facts, id, { ref: { name: handler, targetKinds: ['function', 'method'] } });
+      const listed = (kwarg(args, 'methods')?.namedChildren ?? []).map((m) => stringValue(m)?.toUpperCase());
+      const methods = listed.filter((m) => !!m) as string[];
+      if (!methods.length)
+        methods.push(verb === 'route' || verb === 'api_route' ? 'GET' : verb.toUpperCase());
+      for (const method of methods) {
+        const id = entryNode(facts, 'route', `${file}::route::${method} ${path}`, `${method} ${path}`, at, {
+          method,
+          path,
+        });
+        link(facts, id, { ref: { name: handler, targetKinds: ['function', 'method'] } });
+      }
     };
     walk(root, (n) => {
       if (n.type === 'decorated_definition') {

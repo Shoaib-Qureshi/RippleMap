@@ -6,6 +6,8 @@ export interface Snapshot {
   label: string;
   editIds: string[];
   graph: Graph;
+  /** Graph before this snapshot (undefined for the very first one): the diff base once the list evicts. */
+  base?: Graph;
 }
 
 /**
@@ -27,7 +29,7 @@ export class SnapshotStore {
         if (p && p.confidence === e.confidence) graph.edges.set(id, p);
       }
     }
-    const snap: Snapshot = { id: `s${++this.seq}`, ts, label, editIds, graph };
+    const snap: Snapshot = { id: `s${++this.seq}`, ts, label, editIds, graph, base: prev };
     this.list.push(snap);
     if (this.list.length > this.limit) this.list.splice(0, this.list.length - this.limit);
     return snap;

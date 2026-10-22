@@ -11,7 +11,7 @@ describe('calls extractor (golden graphs)', () => {
         "component:App",
         "component:Button",
         "function:GET",
-        "function:closure@L12",
+        "function:closure:POST /users handler",
         "function:createUser",
         "function:health",
         "function:helper",
@@ -28,7 +28,7 @@ describe('calls extractor (golden graphs)', () => {
       [
         "component:App -> component:Button (renders)",
         "function:GET -> function:helper (calls)",
-        "function:closure@L12 -> function:createUser (calls)",
+        "function:closure:POST /users handler -> function:createUser (calls)",
         "function:createUser -> function:helper (calls)",
         "function:main -> function:start (calls)",
         "function:main -> function:util (calls)",
@@ -77,8 +77,8 @@ describe('calls extractor (golden graphs)', () => {
         "function:acme_on_order",
         "function:acme_register_post_types",
         "function:acme_rest_list_items",
-        "function:closure@L16",
-        "function:closure@L2",
+        "function:closure:rest_api_init callback",
+        "function:closure:wp_footer callback",
         "hook:acme_after_register",
         "hook:admin_menu",
         "hook:init",
@@ -102,7 +102,7 @@ describe('calls extractor (golden graphs)', () => {
         "function:acme_on_order -> function:acme_log (calls)",
         "function:acme_register_post_types -> hook:acme_after_register (calls)",
         "function:acme_rest_list_items -> function:acme_log (calls)",
-        "function:closure@L16 -> function:acme_footer_html (calls)",
+        "function:closure:wp_footer callback -> function:acme_footer_html (calls)",
         "method:Acme_Admin.flush -> function:acme_log (calls)",
         "method:Acme_Admin.render -> method:Acme_Admin.title (calls)",
       ]
@@ -129,5 +129,18 @@ describe('function-level diff', () => {
       'src/lib/util.ts::function::helper->src/lib/util.ts::function::util::calls',
     ]);
     expect(d.summary).toBe('Adds 1 call; changes 1 function; affects 4 callers.');
+  });
+});
+
+describe('pathological files', () => {
+  it('a stack-overflowing file keeps its file node instead of throwing', async () => {
+    const { GraphBuilder } = await import('../../src/graph/GraphBuilder');
+    const { extractors } = await import('../../src/graph/extractors');
+    const { getParser } = await import('./helpers');
+    const b = new GraphBuilder(await getParser(), extractors);
+    const deep = `const x = ${Array.from({ length: 6000 }, (_, i) => `a${i}`).join(' + ')};\n`;
+    const facts = b.extract('deep.js', deep)!;
+    expect(facts.nodes).toHaveLength(1);
+    expect(facts.nodes[0]!.meta?.error).toBe('too deeply nested to analyse');
   });
 });

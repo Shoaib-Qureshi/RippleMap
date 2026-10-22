@@ -30,7 +30,7 @@ export function toPayload(v: GraphView, steps: readonly Snapshot[]): GraphPayloa
     nodes,
     edges,
     summary:
-      !v.pending && v.stepIndex === 0
+      !v.pending && !v.step?.base // the very first snapshot (baseline), even after eviction shifts indexes
         ? 'No changes yet. Edits by you or your AI agent will show here: green added, red removed, amber changed.'
         : diff.summary,
     counts: {

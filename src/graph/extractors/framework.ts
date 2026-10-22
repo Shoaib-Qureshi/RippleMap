@@ -18,9 +18,17 @@ export function addNode(facts: FileFacts, n: GraphNode): string {
   return n.id;
 }
 
-/** Closure callback -> its own function node; calls inside it are attributed to it (via meta.anchor). */
+/**
+ * Closure callback -> its own function node; calls inside it are attributed to it (via meta.anchor).
+ * The id comes from what registers it ("init callback", "GET /x handler") plus a per-file counter, not
+ * its line: inserting a line above must not turn it into removed+added.
+ */
 export function closureNode(facts: FileFacts, fn: Node, label: string): string {
-  const qname = `closure@L${fn.startPosition.row + 1}`;
+  const existing = facts.nodes.find((n) => n.meta?.anchor === fn.startIndex);
+  if (existing) return existing.id;
+  const base = `closure:${label.replace(/\./g, '_')}`; // '.' separates nested qnames
+  let qname = base;
+  for (let i = 2; facts.nodes.some((n) => n.meta?.qname === qname); i++) qname = `${base}#${i}`;
   return addNode(facts, {
     id: `${facts.file}::function::${qname}`,
     kind: 'function',
@@ -64,8 +72,8 @@ export function entryNode(
 export function linkFromEnclosingClosure(facts: FileFacts, at: Node, entryId: string): void {
   for (let p = at.parent; p; p = p.parent) {
     if (!CLOSURE_TYPES.has(p.type)) continue;
-    const id = `${facts.file}::function::closure@L${p.startPosition.row + 1}`;
-    if (facts.nodes.some((n) => n.id === id)) link(facts, id, { id: entryId });
+    const closure = facts.nodes.find((n) => n.meta?.anchor === p.startIndex);
+    if (closure) link(facts, closure.id, { id: entryId });
     return;
   }
 }

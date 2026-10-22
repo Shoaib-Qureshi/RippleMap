@@ -70,4 +70,26 @@ describe('insights', () => {
     expect(svc.view().diff.removedNodes).toEqual(['a.ts::function::a']);
     svc.dispose();
   });
+
+  it('an extra edge inside an existing cycle is not a "new" cycle', async () => {
+    const svc = await service({
+      'a.ts': "import './b';\n",
+      'b.ts': "import './c';\n",
+      'c.ts': "import './a';\n",
+    });
+    svc.setFile('a.ts', "import './b';\nimport './c';\n", 'e1');
+    svc.flush();
+    expect(svc.view().insights.filter((i) => i.kind === 'cycle')).toEqual([]);
+    svc.dispose();
+  });
+
+  it("a new same-named function elsewhere doesn't make callers look gone", async () => {
+    const files: Record<string, string> = { 'u.ts': 'export function use() { init(); }\n' };
+    for (const i of [1, 2, 3]) files[`x${i}.ts`] = 'export function init() {}\n';
+    const svc = await service(files);
+    svc.setFile('x4.ts', 'export function init() {}\n', 'e1'); // 4 candidates: name now ambiguous
+    svc.flush();
+    expect(svc.view().insights.filter((i) => i.kind === 'orphan')).toEqual([]);
+    svc.dispose();
+  });
 });

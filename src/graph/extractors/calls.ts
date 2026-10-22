@@ -100,14 +100,22 @@ function componentish(name: string, n: Node, lang: Lang) {
   return isCap(name) && (lang === 'tsx' || lang === 'javascript') && n.descendantsOfType(JSX).length > 0;
 }
 
+/** PHP class-like declarations (traits, enums and interfaces have methods too). */
+const PHP_CLASSES = new Set([
+  'class_declaration',
+  'trait_declaration',
+  'enum_declaration',
+  'interface_declaration',
+]);
+
 const php: Rules = {
-  isClass: (n) => n.type === 'class_declaration',
+  isClass: (n) => PHP_CLASSES.has(n.type),
   def(n, inClass) {
     const name = n.childForFieldName('name')?.text;
     if (!name) return;
     if (n.type === 'function_definition')
       return { kind: 'function', name, body: n.childForFieldName('body') };
-    if (n.type === 'class_declaration') return { kind: 'class', name, body: n.childForFieldName('body') };
+    if (PHP_CLASSES.has(n.type)) return { kind: 'class', name, body: n.childForFieldName('body') };
     if (n.type === 'method_declaration' && inClass)
       return { kind: 'method', name, body: n.childForFieldName('body') };
   },

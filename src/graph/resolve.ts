@@ -20,6 +20,7 @@ const CODE_KINDS: NodeKind[] = ['function', 'method', 'class', 'component'];
 const dir = (f: string) => path.posix.dirname(f);
 const norm = (p: string) => {
   const n = path.posix.normalize(p);
+  if (n === '.' || n === './') return ''; // `import x from '.'` at the workspace root
   return n.startsWith('./') ? n.slice(2) : n;
 };
 
@@ -43,7 +44,7 @@ export function resolveImport(from: string, imp: ImportFact, files: ReadonlySet<
     else return []; // bare package
     const cands: string[] = [];
     for (const b of base) {
-      cands.push(b, ...JS_EXT.map((e) => b + e), ...JS_EXT.map((e) => `${b}/index${e}`));
+      cands.push(b, ...JS_EXT.map((e) => b + e), ...JS_EXT.map((e) => `${b ? `${b}/` : ''}index${e}`));
       // TS ESM style: import './a.js' that is really a.ts
       const m = /\.(m|c)?js$/.exec(b);
       if (m) cands.push(...['.ts', '.tsx', '.mts', '.cts'].map((e) => b.slice(0, -m[0].length) + e));
