@@ -32,6 +32,10 @@ export function config() {
     maxNodes: c.get<number>('maxNodes', 1500),
     snapshotLimit: c.get<number>('snapshotLimit', 50),
     indexOnStartup: c.get<boolean>('indexOnStartup', true),
+    ai: {
+      baseUrl: c.get<string>('ai.baseUrl', 'https://openrouter.ai/api/v1'),
+      model: c.get<string>('ai.model', 'openrouter/free'),
+    },
   };
 }
 

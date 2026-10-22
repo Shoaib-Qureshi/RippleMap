@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MAX_NOTE, type GraphNode } from '../../../src/shared/messages';
+import { MAX_NOTE, type GraphNode, type PayloadNode, type Summary } from '../../../src/shared/messages';
 import { useStore } from '../store';
 import { activities, describe } from '../view';
 import { vscode } from '../vscode';
 
 export function DetailsDrawer() {
-  const { graph, selectedId, flowRoot, notes, set, showFlow } = useStore();
+  const { graph, selectedId, flowRoot, notes, summaries, set, showFlow } = useStore();
   const activity = useMemo(() => activities(graph), [graph]);
   const node = graph.nodes.find((n) => n.id === selectedId);
   if (!node) return null;
@@ -60,6 +60,7 @@ export function DetailsDrawer() {
           {about.facts && <span className="fl-muted">{about.facts}</span>}
         </p>
       )}
+      <AiSummary node={node} s={summaries[node.id]} />
       {doing && <p className="fl-activity">{doing}</p>}
       <div className="fl-actions">
         <button onClick={() => open(node)}>Open in editor</button>
@@ -104,5 +105,28 @@ function NoteEditor({ node, saved }: { node: GraphNode; saved: string }) {
         Claude Code gets this whenever it edits {node.file} (needs the FlowLens hooks).
       </p>
     </section>
+  );
+}
+
+/** Opt-in AI explanation; the host sends the code to the configured provider only on click. */
+function AiSummary({ node, s }: { node: PayloadNode; s: Summary | undefined }) {
+  const stale = !!s?.text && s.hash !== node.hash;
+  return (
+    <div className="fl-ai">
+      {s?.text && (
+        <p>
+          ✨ {s.text}
+          {stale && <span className="fl-muted"> (code changed since)</span>}
+        </p>
+      )}
+      {s?.error && <p className="fl-warn">{s.error}</p>}
+      <button
+        disabled={s?.loading}
+        title="Sends this code to your AI provider (OpenRouter by default) for a short explanation"
+        onClick={() => vscode.postMessage({ type: 'ai:summarize', nodeId: node.id })}
+      >
+        {s?.loading ? 'Explaining…' : s?.text ? '✨ Explain again' : '✨ Explain with AI'}
+      </button>
+    </div>
   );
 }

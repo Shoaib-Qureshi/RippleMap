@@ -40,6 +40,14 @@ export interface GraphPayload {
   agent: string | null;
 }
 
+/** AI explanation of a node; `hash` = node hash it was made for (differs = file changed since). */
+export interface Summary {
+  text?: string;
+  hash?: string;
+  error?: string;
+  loading?: boolean;
+}
+
 /** Max length of one instruction note for the AI agent. */
 export const MAX_NOTE = 2000;
 
@@ -48,7 +56,8 @@ export type HostToWebview =
   | { type: 'graph:update'; graph: GraphPayload }
   | { type: 'index:progress'; done: number; total: number }
   /** User's instructions for the AI agent, by node id. */
-  | { type: 'notes'; notes: Record<string, string> };
+  | { type: 'notes'; notes: Record<string, string> }
+  | { type: 'summaries'; summaries: Record<string, Summary> };
 
 export type WebviewToHost =
   | { type: 'ready' }
@@ -61,7 +70,9 @@ export type WebviewToHost =
   /** Open the graph in a browser tab or a separate VS Code window. */
   | { type: 'popout'; target: 'browser' | 'window' }
   /** Set (empty text = remove) the instruction the agent gets when it edits this node's file. */
-  | { type: 'note:set'; nodeId: string; text: string };
+  | { type: 'note:set'; nodeId: string; text: string }
+  /** Opt-in: send this node's code to the configured AI provider for a short explanation. */
+  | { type: 'ai:summarize'; nodeId: string };
 
 const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'ready',
@@ -71,6 +82,7 @@ const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'export',
   'popout',
   'note:set',
+  'ai:summarize',
 ]);
 
 /** Validates messages arriving from the webview before the host acts on them. */
@@ -83,6 +95,7 @@ export function isWebviewMessage(m: unknown): m is WebviewToHost {
   if (o.type === 'error') return typeof o.message === 'string';
   if (o.type === 'note:set')
     return typeof o.nodeId === 'string' && typeof o.text === 'string' && o.text.length <= MAX_NOTE;
+  if (o.type === 'ai:summarize') return typeof o.nodeId === 'string';
   if (o.type === 'popout') return o.target === 'browser' || o.target === 'window';
   if (o.type === 'export')
     return ['png', 'svg', 'mermaid'].includes(o.format as string) && typeof o.data === 'string';

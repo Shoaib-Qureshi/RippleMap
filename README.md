@@ -6,7 +6,7 @@ FlowLens watches edits (from Claude Code hooks, or any save / file change), keep
 
 ![File-level diff](media/screenshots/file-diff.png)
 
-Everything runs locally. No telemetry, no network calls, no code leaves your machine.
+Everything runs locally. No telemetry and no network calls, with one opt-in exception: **✨ Explain with AI** sends the code of the block you clicked to your AI provider, and only when you click it.
 
 ## What you get
 
@@ -17,6 +17,7 @@ Everything runs locally. No telemetry, no network calls, no code leaves your mac
 | **Graph panel** (`FlowLens: Open Panel`) | Files or Functions level; **Current / After / Diff** modes; scope "Changed + neighbors" or "All"; left-right, top-down or clustered-by-folder layout; search and folder filter. Click a node to jump to the code. |
 | **Simple mode** (on by default) | Files used by 5+ others (`utils`, `auth`, `ui/button`…) keep their block but drop their incoming lines and show a **⇠N** badge; files with no lines go in a grid below. Hover or click any block to light up all its lines and fade the rest. Changed lines are never hidden. |
 | **What this file does** | Click a block: the details panel shows the file's (or function's) own header/doc comment, plus what FlowLens can tell from the code: Next.js page/layout/API route and its URL, `'use client'`/`'use server'`, routes handled, and the main things it defines. Computed locally, no AI call. |
+| **✨ Explain with AI** (opt-in) | Button in the details panel: a 1–2 sentence explanation of the file or function from an AI model. Default: OpenRouter's free models (`openrouter/free`). Run **FlowLens: Set AI API Key** once (stored in VS Code secret storage; `OPENROUTER_API_KEY` env var also works). Change `flowlens.ai.baseUrl` / `flowlens.ai.model` for Gemini, Ollama (fully local) or any OpenAI-compatible API. Explanations are cached and marked *(code changed since)* when the file changes. |
 | **Show flow of…** | Searchable dropdown of every function, method, class, hook and route. Pick one to see only its flow: what it calls (depth 1–5 or all) plus its direct callers. Also via **Show flow** in the node details. |
 | **Open anywhere** | `↗ Browser` opens the live graph in your default browser (Chrome etc.) on `127.0.0.1` with a secret token; `⧉ New window` pops it into its own VS Code window. Clicking a node in the browser still jumps to the code in VS Code. |
 | **What the agent did** | Every changed block shows a one-line summary, e.g. *Claude Code: added save, changed load* (*(proposed)* while the edit is pending). |
@@ -62,6 +63,7 @@ Other agents (Copilot, Cursor, …) still show up through the file-change fallba
 | FlowLens: Open Graph in New Window | Graph panel in a separate VS Code window |
 | FlowLens: Install / Remove Claude Code Hooks | See above |
 | FlowLens: Re-index Workspace | Rebuild the graph from disk |
+| FlowLens: Set AI API Key | Key for **Explain with AI** (empty = remove) |
 | FlowLens: Clear Edit History | Empty the feed (and drop any pending preview) |
 
 ## Settings
@@ -72,6 +74,8 @@ Other agents (Copilot, Cursor, …) still show up through the file-change fallba
 | `flowlens.indexOnStartup` | `true` | Index the workspace graph at startup |
 | `flowlens.maxNodes` | `1500` | Nodes rendered at once (changed nodes are kept first) |
 | `flowlens.snapshotLimit` | `50` | Graph history kept for diff and scrubber |
+| `flowlens.ai.baseUrl` | `https://openrouter.ai/api/v1` | OpenAI-compatible API for Explain with AI (user settings only) |
+| `flowlens.ai.model` | `openrouter/free` | Model id |
 | `flowlens.decorationFadeSeconds` | `60` | How long edited-line highlights last |
 
 ## Good to know

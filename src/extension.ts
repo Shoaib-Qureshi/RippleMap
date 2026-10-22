@@ -4,6 +4,7 @@ import type { RawEdit } from './capture/EditEvent';
 import { EditTracker } from './capture/EditTracker';
 import { HookServer } from './capture/HookServer';
 import { ManualEditAdapter } from './capture/ManualEditAdapter';
+import { summarize } from './ai/summarize';
 import { saveExport } from './commands/exportGraph';
 import { ensureForwarder, registerHookCommands } from './commands/installHooks';
 import { extractors } from './graph/extractors';
@@ -20,7 +21,7 @@ import { EditFeedProvider } from './ui/EditFeedProvider';
 import { BrowserBridge } from './ui/BrowserBridge';
 import { initMessage, PanelProvider } from './ui/PanelProvider';
 import { StatusBar } from './ui/StatusBar';
-import type { GraphPayload, HostToWebview, WebviewToHost } from './shared/messages';
+import type { GraphPayload, HostToWebview, Summary, WebviewToHost } from './shared/messages';
 import { config, readText, toUri, trackedRel } from './util/workspace';
 
 export interface FlowLensApi {
@@ -34,6 +35,8 @@ export interface FlowLensApi {
 }
 
 const NOTES_KEY = 'flowlens.notes';
+const SUMMARIES_KEY = 'flowlens.summaries';
+const AI_KEY_SECRET = 'flowlens.aiKey';
 type StoredNote = AgentNote & { file: string };
 const AGENT_NAME: Record<string, string> = {
   'claude-code': 'Claude Code',
@@ -91,6 +94,8 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       notes = { ...notes };
       void ctx.workspaceState.update(NOTES_KEY, notes);
       postNotes();
+    } else if (m.type === 'ai:summarize') {
+      void explain(m.nodeId);
     } else if (m.type === 'scrub') {
       graph.select(m.index);
     } else if (m.type === 'openFile') {
@@ -117,6 +122,61 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   const postNotes = () =>
     post({ type: 'notes', notes: Object.fromEntries(Object.entries(notes).map(([id, n]) => [id, n.text])) });
   postNotes();
+
+  // Opt-in AI explanations (the only network call; made when the user clicks "Explain with AI").
+  let summaries: Record<string, Summary> = ctx.workspaceState.get(SUMMARIES_KEY) ?? {};
+  const setSummary = (id: string, s: Summary) => {
+    summaries = { ...summaries, [id]: s };
+    const saved = Object.entries(summaries).filter(([, v]) => v.text);
+    void ctx.workspaceState.update(
+      SUMMARIES_KEY,
+      Object.fromEntries(saved.map(([k, v]) => [k, { text: v.text, hash: v.hash }])),
+    );
+    post({ type: 'summaries', summaries });
+  };
+  post({ type: 'summaries', summaries });
+  const promptKey = async (): Promise<string | undefined> => {
+    const k = await vscode.window.showInputBox({
+      title: 'FlowLens: AI API key',
+      prompt:
+        'OpenRouter (or other OpenAI-compatible) API key. Stored in VS Code secret storage. Empty = remove.',
+      password: true,
+      ignoreFocusOut: true,
+    });
+    if (k === undefined) return undefined;
+    if (k.trim()) await ctx.secrets.store(AI_KEY_SECRET, k.trim());
+    else await ctx.secrets.delete(AI_KEY_SECRET);
+    return k.trim() || undefined;
+  };
+  const explain = async (nodeId: string) => {
+    const n = graph.graph.nodes.get(nodeId);
+    const uri = n && toUri(n.file);
+    if (!n || !uri) return;
+    const prev = summaries[nodeId];
+    setSummary(nodeId, { ...prev, loading: true, error: undefined });
+    try {
+      const key =
+        (await ctx.secrets.get(AI_KEY_SECRET)) ?? process.env.OPENROUTER_API_KEY ?? (await promptKey());
+      if (!key) throw new Error('No API key set. Run "FlowLens: Set AI API Key".');
+      const text = await readText(uri);
+      if (text === undefined) throw new Error(`Can't read ${n.file}.`);
+      const code =
+        n.kind === 'file' || !n.range
+          ? text
+          : text
+              .split(/\r?\n/)
+              .slice(n.range.startLine - 1, n.range.endLine)
+              .join('\n');
+      const { baseUrl, model } = config().ai;
+      const out = await summarize(
+        { baseUrl, model, key },
+        { file: n.file, symbol: n.kind === 'file' ? undefined : n.label, code },
+      );
+      setSummary(nodeId, { text: out, hash: n.hash });
+    } catch (e) {
+      setSummary(nodeId, { ...prev, loading: false, error: e instanceof Error ? e.message : String(e) });
+    }
+  };
   /** Who made the change on screen: the pending proposal's agent, else the agents behind the step's edits. */
   const agentOf = (view: ReturnType<GraphService['view']>): string | null => {
     const ids = view.pending ? [view.pending.editId] : (view.step?.editIds ?? []);
@@ -197,6 +257,10 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
     }),
     vscode.commands.registerCommand('flowlens.clearHistory', () => tracker.clear()),
+    vscode.commands.registerCommand('flowlens.setAiKey', async () => {
+      if ((await promptKey()) !== undefined)
+        void vscode.window.showInformationMessage('FlowLens: AI key saved in VS Code secret storage.');
+    }),
     vscode.commands.registerCommand('flowlens.reindex', () => runIndex('Re-index')),
   );
 

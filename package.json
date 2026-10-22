@@ -75,6 +75,11 @@
         "category": "FlowLens"
       },
       {
+        "command": "flowlens.setAiKey",
+        "title": "Set AI API Key",
+        "category": "FlowLens"
+      },
+      {
         "command": "flowlens.showEditDiff",
         "title": "Show Edit Diff",
         "category": "FlowLens"
@@ -181,6 +186,17 @@
           "default": 50,
           "minimum": 2,
           "description": "How many graph snapshots to keep for the diff and time scrubber."
+        },
+        "flowlens.ai.baseUrl": {
+          "type": "string",
+          "default": "https://openrouter.ai/api/v1",
+          "scope": "application",
+          "markdownDescription": "OpenAI-compatible API used by **Explain with AI** (OpenRouter by default; e.g. `https://generativelanguage.googleapis.com/v1beta/openai` for Gemini, `http://localhost:11434/v1` for Ollama). Only contacted when you click the button. Application-scoped so a workspace can't redirect your key."
+        },
+        "flowlens.ai.model": {
+          "type": "string",
+          "default": "openrouter/free",
+          "markdownDescription": "Model for **Explain with AI**. `openrouter/free` picks an available free OpenRouter model; any model id works (e.g. `google/gemma-4-31b-it:free`)."
         }
       }
     }
