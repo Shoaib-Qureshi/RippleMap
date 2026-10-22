@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GraphPayload } from '../../src/shared/messages';
-import { visibleGraph, type ViewOptions } from '../../webview/src/view';
+import { activities, visibleGraph, type ViewOptions } from '../../webview/src/view';
 
 const g: GraphPayload = {
   nodes: [
@@ -22,6 +22,7 @@ const g: GraphPayload = {
   steps: [],
   pending: null,
   insights: [],
+  agent: null,
 };
 const opts: ViewOptions = {
   level: 'files',
@@ -101,5 +102,19 @@ describe('visibleGraph', () => {
     const v = visibleGraph(g, { ...opts, mode: 'diff', maxNodes: 2 });
     expect(v.nodes.map((n) => n.id).sort()).toEqual(['a', 'c']);
     expect(v.hidden).toBe(2);
+  });
+  it('activities: files list changed symbols, symbols say what happened', () => {
+    const a = activities({ ...g, agent: 'Claude Code' });
+    expect(a.get('a')).toBe('Claude Code: edited');
+    expect(a.get('c')).toBe('Claude Code: created file');
+    expect(a.get('b')).toBeUndefined();
+    const g2: GraphPayload = {
+      ...g,
+      pending: { file: 'src/a.ts', uncertain: false },
+      nodes: [...g.nodes, { id: 'h', kind: 'function', label: 'save', file: 'src/a.ts', status: 'added' }],
+      agent: 'Claude Code',
+    };
+    expect(activities(g2).get('a')).toBe('Claude Code (proposed): added save');
+    expect(activities(g2).get('h')).toBe('Claude Code (proposed): added');
   });
 });

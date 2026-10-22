@@ -2,7 +2,7 @@ import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type N
 import { useMemo } from 'react';
 import { useStore } from '../store';
 import { layoutGraph, NODE_H, NODE_W } from '../layout';
-import { visibleGraph } from '../view';
+import { activities, visibleGraph } from '../view';
 import { vscode } from '../vscode';
 import { ExportPanel } from './ExportPanel';
 import { ClusterNode, FlowNode, type ClusterData, type FlowNodeData } from './FlowNode';
@@ -23,8 +23,10 @@ export function GraphCanvas() {
     selectedId,
     flowRoot,
     flowDepth,
+    notes,
     set,
   } = useStore();
+  const activity = useMemo(() => activities(graph), [graph]);
   const visible = useMemo(
     () =>
       visibleGraph(graph, {
@@ -73,7 +75,13 @@ export function GraphCanvas() {
         width: NODE_W,
         height: NODE_H,
         position: positions.get(n.id)!,
-        data: { node: n, vertical, status: colored ? n.status : 'unchanged' },
+        data: {
+          node: n,
+          vertical,
+          status: colored ? n.status : 'unchanged',
+          activity: activity.get(n.id),
+          note: notes[n.id],
+        },
         selected: n.id === selectedId,
         className: `${cls(n.status)}${warned.has(n.id) ? ' warn' : ''}${n.id === flowRoot ? ' flow-root' : ''}`,
       })),
@@ -96,7 +104,7 @@ export function GraphCanvas() {
       },
     }));
     return { nodes, edges };
-  }, [visible, positioned, layout, mode, selectedId, graph.insights, flowRoot]);
+  }, [visible, positioned, layout, mode, selectedId, graph.insights, flowRoot, activity, notes]);
 
   if (!graph.nodes.length)
     return (

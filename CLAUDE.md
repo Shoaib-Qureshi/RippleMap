@@ -23,7 +23,7 @@ VS Code extension that visualizes AI-made code edits and the before/after change
 - Extension host is the source of truth; the webview is a view. All host↔webview messages are typed in a shared `messages.ts`.
 - Small modules, one responsibility. Extractors implement the `Extractor` interface; agents implement `AgentAdapter`.
 - Never block the extension host: debounce, chunk long work with `await` yields.
-- Hook forwarder (`hook/hook-forwarder.js`) must **always exit 0** (hard exit at 700 ms, 400 ms request timeout), with no output that could affect the agent.
+- Hook forwarder (`hook/hook-forwarder.js`) must **always exit 0** (hard exit at 700 ms, 400 ms request timeout), and prints nothing except FlowLens' own JSON reply (user notes as PreToolUse `additionalContext`).
 - HookServer binds to `127.0.0.1` only and requires the token header.
 - No telemetry. No network calls unless the user opts in to AI explanation.
 - Webview: strict CSP with nonce, use VS Code theme CSS variables, no remote assets.

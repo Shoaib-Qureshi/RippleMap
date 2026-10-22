@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // FlowLens hook forwarder. Claude Code runs this for each configured hook event.
-// Contract: never print anything, never block, ALWAYS exit 0 — the agent must not notice us.
+// Contract: never block, ALWAYS exit 0. Prints nothing, except FlowLens' JSON reply when there is one
+// (the user's notes for the file being edited, as PreToolUse additionalContext).
 'use strict';
 const crypto = require('crypto');
 const fs = require('fs');
@@ -62,8 +63,13 @@ function main() {
           },
         },
         (res) => {
-          res.resume();
-          res.on('end', () => process.exit(0));
+          const out = [];
+          res.on('data', (c) => out.push(c));
+          res.on('error', () => process.exit(0));
+          res.on('end', () => {
+            if (res.statusCode !== 200 || !out.length) process.exit(0);
+            process.stdout.write(Buffer.concat(out), () => process.exit(0));
+          });
         },
       );
       req.on('error', () => process.exit(0));

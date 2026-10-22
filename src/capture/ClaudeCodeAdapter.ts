@@ -3,6 +3,8 @@
 // - Edit: {file_path (absolute), old_string, new_string, replace_all?}; Write: {file_path, content}.
 // - MultiEdit ({file_path, edits[]}) is no longer documented; handled if it ever arrives.
 // - PostToolUseFailure / PermissionDenied: the proposed edit never landed. Stop: end of a response.
+// - PreToolUse may print {hookSpecificOutput: {hookEventName, additionalContext}} on stdout (exit 0);
+//   Claude reads it as a system reminder next to the tool result. We use it for the user's notes.
 import type { AgentAdapter, EditSink } from './AgentAdapter';
 import type { RawEdit } from './EditEvent';
 import {
@@ -56,6 +58,42 @@ export interface FileAccess {
   /** Workspace-relative path for an absolute path, or null if not a tracked workspace file. */
   toRel(abs: string): string | null;
   read(abs: string): Promise<string | undefined>;
+}
+
+export interface AgentNote {
+  label: string;
+  kind: string;
+  text: string;
+}
+
+/**
+ * Hook stdout for a PreToolUse edit of a file the user left notes on, or undefined.
+ * `notesFor` gets the workspace-relative file.
+ */
+export function hookReply(
+  p: Obj,
+  toRel: (abs: string) => string | null,
+  notesFor: (file: string) => AgentNote[],
+): Obj | undefined {
+  if (
+    p.hook_event_name !== 'PreToolUse' ||
+    !(EDIT_TOOLS as readonly string[]).includes(str(p.tool_name) ?? '')
+  )
+    return undefined;
+  const abs = str(obj(p.tool_input)?.file_path);
+  const file = abs && toRel(abs);
+  const notes = file ? notesFor(file) : [];
+  if (!file || !notes.length) return undefined;
+  const lines = notes.map((n) => `- ${n.label} (${n.kind}): ${n.text}`);
+  return {
+    hookSpecificOutput: {
+      hookEventName: 'PreToolUse',
+      additionalContext: [
+        `FlowLens: the user left instructions for code in ${file}. Check that this edit follows them; if it doesn't, fix it:`,
+        ...lines,
+      ].join('\n'),
+    },
+  };
 }
 
 /** Turns Claude Code hook payloads (via HookServer) into edit events. */

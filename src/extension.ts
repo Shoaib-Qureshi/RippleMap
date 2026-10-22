@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ClaudeCodeAdapter } from './capture/ClaudeCodeAdapter';
+import { ClaudeCodeAdapter, hookReply, type AgentNote } from './capture/ClaudeCodeAdapter';
 import type { RawEdit } from './capture/EditEvent';
 import { EditTracker } from './capture/EditTracker';
 import { HookServer } from './capture/HookServer';
@@ -20,7 +20,7 @@ import { EditFeedProvider } from './ui/EditFeedProvider';
 import { BrowserBridge } from './ui/BrowserBridge';
 import { initMessage, PanelProvider } from './ui/PanelProvider';
 import { StatusBar } from './ui/StatusBar';
-import type { HostToWebview, WebviewToHost } from './shared/messages';
+import type { GraphPayload, HostToWebview, WebviewToHost } from './shared/messages';
 import { config, readText, toUri, trackedRel } from './util/workspace';
 
 export interface FlowLensApi {
@@ -33,6 +33,14 @@ export interface FlowLensApi {
   webviewErrors: string[];
 }
 
+const NOTES_KEY = 'flowlens.notes';
+type StoredNote = AgentNote & { file: string };
+const AGENT_NAME: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  manual: 'Manual edit',
+  'other-agent': 'Agent',
+};
+
 export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensApi> {
   const tracker = new EditTracker();
   const sink = {
@@ -43,10 +51,18 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     toRel: (abs) => trackedRel(vscode.Uri.file(abs)),
     read: (abs) => readText(vscode.Uri.file(abs)),
   });
+  // User's instructions for the agent, per graph node; sent back through the PreToolUse hook.
+  let notes: Record<string, StoredNote> = ctx.workspaceState.get(NOTES_KEY) ?? {};
   // Serialize hook handling so Pre/Post for the same tool call are processed in order.
   let hookQueue = Promise.resolve();
   const hookServer = new HookServer(
     (p) => (hookQueue = hookQueue.then(() => claude.handle(p)).catch(() => undefined)),
+    (p) =>
+      hookReply(
+        p,
+        (abs) => trackedRel(vscode.Uri.file(abs)),
+        (file) => Object.values(notes).filter((n) => n.file === file),
+      ),
   );
 
   const parser = await ParserService.create(vscode.Uri.joinPath(ctx.extensionUri, 'dist', 'grammars').fsPath);
@@ -67,6 +83,14 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       saveExport(m.format, m.data).catch(
         (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: export failed: ${String(e)}`),
       );
+    } else if (m.type === 'note:set') {
+      const n = graph.graph.nodes.get(m.nodeId);
+      const text = m.text.trim();
+      if (text && n) notes[m.nodeId] = { file: n.file, label: n.label, kind: n.kind, text };
+      else delete notes[m.nodeId];
+      notes = { ...notes };
+      void ctx.workspaceState.update(NOTES_KEY, notes);
+      postNotes();
     } else if (m.type === 'scrub') {
       graph.select(m.index);
     } else if (m.type === 'openFile') {
@@ -90,6 +114,20 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     panel.post(m);
     browser.post(m);
   };
+  const postNotes = () =>
+    post({ type: 'notes', notes: Object.fromEntries(Object.entries(notes).map(([id, n]) => [id, n.text])) });
+  postNotes();
+  /** Who made the change on screen: the pending proposal's agent, else the agents behind the step's edits. */
+  const agentOf = (view: ReturnType<GraphService['view']>): string | null => {
+    const ids = view.pending ? [view.pending.editId] : (view.step?.editIds ?? []);
+    const names = new Set(
+      ids
+        .map((id) => tracker.get(id)?.source)
+        .filter(Boolean)
+        .map((s) => AGENT_NAME[s!]),
+    );
+    return names.size ? [...names].join(' + ') : null;
+  };
   graph.on('update', () => {
     const view = graph.view();
     statusBar.setGraphText(shortStats(view.diff));
@@ -105,7 +143,8 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       }
       if (changed) tracker.emit('change');
     }
-    post({ type: 'graph:update', graph: toPayload(view, graph.snapshots.list) });
+    const payload: GraphPayload = { ...toPayload(view, graph.snapshots.list), agent: agentOf(view) };
+    post({ type: 'graph:update', graph: payload });
   });
 
   tracker.on('proposed', (e) => {

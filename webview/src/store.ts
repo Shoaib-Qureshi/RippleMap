@@ -24,6 +24,8 @@ export interface State {
   /** Symbol whose flow is shown (null = normal graph view). */
   flowRoot: string | null;
   flowDepth: number;
+  /** Instructions for the AI agent, by node id. */
+  notes: Record<string, string>;
   showFlow(id: string | null): void;
   set(patch: Partial<State>): void;
   toggleKind(k: NodeKind): void;
@@ -41,7 +43,9 @@ export const useStore = create<State>((set, get) => ({
     steps: [],
     pending: null,
     insights: [],
+    agent: null,
   },
+  notes: {},
   progress: null,
   level: 'files',
   mode: 'diff',
@@ -68,6 +72,9 @@ export const useStore = create<State>((set, get) => ({
         break;
       case 'graph:update':
         set({ graph: msg.graph });
+        break;
+      case 'notes':
+        set({ notes: msg.notes });
         break;
       case 'index:progress':
         set({ progress: msg.done >= msg.total ? null : { done: msg.done, total: msg.total } });

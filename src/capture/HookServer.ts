@@ -10,14 +10,18 @@ export const TOKEN_HEADER = 'x-flowlens-token';
 
 /**
  * Localhost-only receiver for hook payloads. Random port, random per-session token, size cap.
- * Responds immediately (204) so the forwarder never waits on our processing.
+ * Responds immediately so the forwarder never waits on our processing: 204, or 200 with `reply(payload)`
+ * as JSON (printed by the forwarder for the agent to read).
  */
 export class HookServer {
   readonly token = randomBytes(32).toString('hex');
   private server: http.Server | undefined;
   private written: string[] = [];
 
-  constructor(private readonly onPayload: (payload: Record<string, unknown>) => void) {}
+  constructor(
+    private readonly onPayload: (payload: Record<string, unknown>) => void,
+    private readonly reply: (payload: Record<string, unknown>) => object | undefined = () => undefined,
+  ) {}
 
   get port(): number {
     return (this.server?.address() as AddressInfo | null)?.port ?? 0;
@@ -83,7 +87,14 @@ export class HookServer {
         typeof (payload as { hook_event_name?: unknown }).hook_event_name !== 'string'
       )
         return end(400);
-      end(204);
+      let body: object | undefined;
+      try {
+        body = this.reply(payload as Record<string, unknown>);
+      } catch {
+        /* no reply */
+      }
+      if (body) res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+      else end(204);
       try {
         this.onPayload(payload as Record<string, unknown>);
       } catch {

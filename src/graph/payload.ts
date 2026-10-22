@@ -41,5 +41,6 @@ export function toPayload(v: GraphView, steps: readonly Snapshot[]): GraphPayloa
     steps: steps.map(stepInfo),
     pending: v.pending ? { file: v.pending.file, uncertain: v.pending.uncertain } : null,
     insights: v.insights,
+    agent: null,
   };
 }

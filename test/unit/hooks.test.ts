@@ -1,7 +1,11 @@
+import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as http from 'node:http';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { ClaudeCodeAdapter, proposedText } from '../../src/capture/ClaudeCodeAdapter';
+import { ClaudeCodeAdapter, hookReply, proposedText } from '../../src/capture/ClaudeCodeAdapter';
 import { discoveryPath, normalizeDir } from '../../src/capture/discovery';
 import type { RawEdit } from '../../src/capture/EditEvent';
 import { HookServer, TOKEN_HEADER } from '../../src/capture/HookServer';
@@ -161,6 +165,53 @@ describe('HookServer', () => {
       expect(got).toEqual([{ hook_event_name: 'Stop' }]);
     } finally {
       s.dispose();
+    }
+  });
+});
+
+describe('notes for the agent', () => {
+  const pre = (file: string, tool = 'Edit') => ({
+    hook_event_name: 'PreToolUse',
+    tool_name: tool,
+    tool_input: { file_path: file },
+  });
+  const toRel = (abs: string) => (abs.startsWith('/w/') ? abs.slice(3) : null);
+  const notesFor = (f: string) =>
+    f === 'a.ts' ? [{ label: 'save', kind: 'function', text: 'keep it sync' }] : [];
+
+  it('replies only for PreToolUse edits of files with notes', () => {
+    const r = hookReply(pre('/w/a.ts'), toRel, notesFor) as { hookSpecificOutput: Record<string, string> };
+    expect(r.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+    expect(r.hookSpecificOutput.additionalContext).toContain('- save (function): keep it sync');
+    expect(hookReply(pre('/w/b.ts'), toRel, notesFor)).toBeUndefined();
+    expect(hookReply(pre('/x/a.ts'), toRel, notesFor)).toBeUndefined();
+    expect(hookReply(pre('/w/a.ts', 'Bash'), toRel, notesFor)).toBeUndefined();
+    expect(hookReply({ ...pre('/w/a.ts'), hook_event_name: 'PostToolUse' }, toRel, notesFor)).toBeUndefined();
+  });
+
+  it('the forwarder prints the reply and exits 0; prints nothing without one', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fl-notes-'));
+    const s = new HookServer(
+      () => undefined,
+      (p) => ((p.tool_input as { file_path: string }).file_path === 'a' ? { ok: 1 } : undefined),
+    );
+    await s.start([dir]);
+    const run = (file: string) =>
+      new Promise<{ code: number | null; out: string }>((resolve) => {
+        const c = spawn(process.execPath, ['hook/hook-forwarder.js'], {
+          env: { ...process.env, CLAUDE_PROJECT_DIR: dir },
+        });
+        let out = '';
+        c.stdout.on('data', (d: Buffer) => (out += d.toString()));
+        c.on('close', (code) => resolve({ code, out }));
+        c.stdin.end(JSON.stringify({ hook_event_name: 'PreToolUse', tool_input: { file_path: file } }));
+      });
+    try {
+      expect(await run('a')).toEqual({ code: 0, out: '{"ok":1}' });
+      expect(await run('b')).toEqual({ code: 0, out: '' });
+    } finally {
+      s.dispose();
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

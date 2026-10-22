@@ -120,3 +120,30 @@ export function flowGraph(
 }
 
 export const folderOf = (file: string) => (file.includes('/') ? file.slice(0, file.lastIndexOf('/')) : '.');
+
+const VERB = { added: 'added', removed: 'removed', modified: 'changed' } as const;
+
+/**
+ * One line per changed node saying what the agent did, e.g. "Claude Code: added save, changed load".
+ * Files list their changed symbols; symbols say what happened to them.
+ */
+export function activities(g: GraphPayload): Map<string, string> {
+  const who = `${g.agent ?? 'Edit'}${g.pending ? ' (proposed)' : ''}: `;
+  const out = new Map<string, string>();
+  const byFile = new Map<string, PayloadNode[]>();
+  for (const n of g.nodes) {
+    if (n.kind === 'file' || n.status === 'unchanged') continue;
+    out.set(n.id, who + VERB[n.status]);
+    byFile.set(n.file, [...(byFile.get(n.file) ?? []), n]);
+  }
+  for (const f of g.nodes) {
+    if (f.kind !== 'file') continue;
+    const changed = byFile.get(f.file) ?? [];
+    if (!changed.length && f.status === 'unchanged') continue;
+    const parts = changed.slice(0, 3).map((n) => `${VERB[n.status as keyof typeof VERB]} ${n.label}`);
+    if (changed.length > 3) parts.push(`+${changed.length - 3} more`);
+    const fallback = { added: 'created file', removed: 'deleted file', modified: 'edited', unchanged: '' };
+    out.set(f.id, who + (parts.join(', ') || fallback[f.status]));
+  }
+  return out;
+}

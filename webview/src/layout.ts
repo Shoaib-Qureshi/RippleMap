@@ -4,8 +4,8 @@ import { folderOf } from './view';
 
 export type LayoutMode = 'TB' | 'LR' | 'cluster';
 
-export const NODE_W = 190;
-export const NODE_H = 40;
+export const NODE_W = 230;
+export const NODE_H = 54;
 
 export interface Positioned {
   positions: Map<string, { x: number; y: number }>;

@@ -36,12 +36,19 @@ export interface GraphPayload {
   pending: { file: string; uncertain: boolean } | null;
   /** Risk warnings for this change: new cycles, orphaned functions, calls to removed symbols. */
   insights: { kind: 'cycle' | 'orphan' | 'dangling'; message: string; nodeIds: string[] }[];
+  /** Who made the change being shown ("Claude Code", "Manual edit"), null for the baseline. */
+  agent: string | null;
 }
+
+/** Max length of one instruction note for the AI agent. */
+export const MAX_NOTE = 2000;
 
 export type HostToWebview =
   | { type: 'init'; version: string; workspaceName: string | null; maxNodes: number }
   | { type: 'graph:update'; graph: GraphPayload }
-  | { type: 'index:progress'; done: number; total: number };
+  | { type: 'index:progress'; done: number; total: number }
+  /** User's instructions for the AI agent, by node id. */
+  | { type: 'notes'; notes: Record<string, string> };
 
 export type WebviewToHost =
   | { type: 'ready' }
@@ -52,7 +59,9 @@ export type WebviewToHost =
   /** png/svg: data URL; mermaid: text. */
   | { type: 'export'; format: 'png' | 'svg' | 'mermaid'; data: string }
   /** Open the graph in a browser tab or a separate VS Code window. */
-  | { type: 'popout'; target: 'browser' | 'window' };
+  | { type: 'popout'; target: 'browser' | 'window' }
+  /** Set (empty text = remove) the instruction the agent gets when it edits this node's file. */
+  | { type: 'note:set'; nodeId: string; text: string };
 
 const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'ready',
@@ -61,6 +70,7 @@ const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'scrub',
   'export',
   'popout',
+  'note:set',
 ]);
 
 /** Validates messages arriving from the webview before the host acts on them. */
@@ -71,6 +81,8 @@ export function isWebviewMessage(m: unknown): m is WebviewToHost {
   if (o.type === 'openFile')
     return typeof o.file === 'string' && (o.line === undefined || typeof o.line === 'number');
   if (o.type === 'error') return typeof o.message === 'string';
+  if (o.type === 'note:set')
+    return typeof o.nodeId === 'string' && typeof o.text === 'string' && o.text.length <= MAX_NOTE;
   if (o.type === 'popout') return o.target === 'browser' || o.target === 'window';
   if (o.type === 'export')
     return ['png', 'svg', 'mermaid'].includes(o.format as string) && typeof o.data === 'string';
