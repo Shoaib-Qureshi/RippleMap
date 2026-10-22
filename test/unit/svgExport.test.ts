@@ -35,3 +35,19 @@ describe('toSvg', () => {
     expect(svg).not.toContain('a<b>');
   });
 });
+
+describe('PNG scale', () => {
+  it('keeps big graphs inside browser canvas limits, small ones at 2x', async () => {
+    const { pngScale } = await import('../../webview/src/svgExport');
+    expect(pngScale(1200, 800)).toBe(2);
+    for (const [w, h] of [
+      [9160, 18275],
+      [53308, 3000],
+      [2400, 31475],
+    ] as const) {
+      const k = pngScale(w, h);
+      expect(Math.max(w, h) * k).toBeLessThanOrEqual(16384);
+      expect(w * k * h * k).toBeLessThanOrEqual(2.6e8);
+    }
+  });
+});

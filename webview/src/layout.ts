@@ -13,53 +13,108 @@ export interface Positioned {
   clusters: { id: string; label: string; x: number; y: number; width: number; height: number }[];
 }
 
+type Point = { x: number; y: number };
+/** A rectangle of laid-out nodes that `pack` can place anywhere. */
+type Block = { w: number; h: number; place: (x: number, y: number) => void };
+
 const GAP = 48;
+const CELL = { w: NODE_W + 24, h: NODE_H + 24 };
+/** Folder box padding: sides/bottom, and room for the label on top. */
+const PAD = 12;
+const LABEL = 28;
 
 /**
- * dagre layout. Cluster mode groups nodes by folder using a compound graph. Otherwise each connected group
- * is laid out on its own and the groups are packed in rows, biggest first, with edgeless nodes in a grid
- * at the end (one dagre run would stack every small group into a single tall, unreadable column).
+ * Each connected group is laid out on its own with dagre and the groups are packed in rows, biggest first,
+ * with edgeless nodes in a grid at the end (one dagre run stacks every small group into a single tall,
+ * unreadable column). Cluster mode does the same inside each folder and packs one box per folder; no dagre
+ * compound graphs (they stack folders into one column too, and throw on some inputs).
  */
 export function layoutGraph(all: GraphNode[], edges: GraphEdge[], mode: LayoutMode): Positioned {
-  if (mode === 'cluster') return dagreLayout(all, edges, mode);
+  return mode === 'cluster' ? clustered(all, edges) : packedGroups(all, edges, mode);
+}
+
+function packedGroups(all: GraphNode[], edges: GraphEdge[], rankdir: 'LR' | 'TB'): Positioned {
   const groups = connectedGroups(all, edges);
   const singles = groups.filter((g) => g.length === 1).map((g) => g[0]!);
-  const blocks: { w: number; h: number; place: (x: number, y: number) => void }[] = [];
-  const positions = new Map<string, { x: number; y: number }>();
-  for (const group of groups.filter((g) => g.length > 1)) {
-    const ids = new Set(group.map((n) => n.id));
-    const sub = dagreLayout(
-      group,
-      edges.filter((e) => ids.has(e.from) && ids.has(e.to)),
-      mode,
-    );
-    blocks.push({
-      w: sub.width,
-      h: sub.height,
-      place: (x, y) => sub.positions.forEach((p, id) => positions.set(id, { x: p.x + x, y: p.y + y })),
+  const positions = new Map<string, Point>();
+  const blocks: Block[] = groups
+    .filter((g) => g.length > 1)
+    .map((group) => {
+      const ids = new Set(group.map((n) => n.id));
+      const sub = dagreLayout(
+        group,
+        edges.filter((e) => ids.has(e.from) && ids.has(e.to)),
+        rankdir,
+      );
+      return {
+        w: sub.width,
+        h: sub.height,
+        place: (x, y) => sub.positions.forEach((p, id) => positions.set(id, { x: p.x + x, y: p.y + y })),
+      };
     });
-  }
-  const cell = { w: NODE_W + 24, h: NODE_H + 24 };
-  const area = blocks.reduce((a, b) => a + b.w * b.h, 0) + singles.length * cell.w * cell.h;
-  const rowWidth = Math.max(...blocks.map((b) => b.w), Math.sqrt(area) * 1.4, cell.w * 4);
+  const width = rowWidth(blocks, singles.length);
   if (singles.length) {
-    const cols = Math.max(1, Math.floor(rowWidth / cell.w));
+    const cols = Math.max(1, Math.floor(width / CELL.w));
     const sorted = [...singles].sort((a, b) => a.file.localeCompare(b.file));
     blocks.push({
-      w: Math.min(cols, sorted.length) * cell.w,
-      h: Math.ceil(sorted.length / cols) * cell.h,
+      w: Math.min(cols, sorted.length) * CELL.w,
+      h: Math.ceil(sorted.length / cols) * CELL.h,
       place: (x, y) =>
         sorted.forEach((n, i) =>
-          positions.set(n.id, { x: x + 20 + (i % cols) * cell.w, y: y + 20 + Math.floor(i / cols) * cell.h }),
+          positions.set(n.id, { x: x + 20 + (i % cols) * CELL.w, y: y + 20 + Math.floor(i / cols) * CELL.h }),
         ),
     });
   }
-  // Shelf packing: left to right, wrap when the row is full.
+  pack(blocks, width);
+  return { positions, clusters: [] };
+}
+
+/** One box per folder (folders in name order); inside each, the packed layout of its own nodes. */
+function clustered(all: GraphNode[], edges: GraphEdge[]): Positioned {
+  const byFolder = new Map<string, GraphNode[]>();
+  for (const n of all) byFolder.set(folderOf(n.file), [...(byFolder.get(folderOf(n.file)) ?? []), n]);
+  const positions = new Map<string, Point>();
+  const clusters: Positioned['clusters'] = [];
+  const blocks: Block[] = [...byFolder]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([folder, nodes]) => {
+      const ids = new Set(nodes.map((n) => n.id));
+      const inner = packedGroups(
+        nodes,
+        edges.filter((e) => ids.has(e.from) && ids.has(e.to)),
+        'LR',
+      ).positions;
+      const ps = [...inner.values()];
+      const minX = Math.min(...ps.map((p) => p.x));
+      const minY = Math.min(...ps.map((p) => p.y));
+      const w = Math.max(...ps.map((p) => p.x)) + NODE_W - minX + 2 * PAD;
+      const h = Math.max(...ps.map((p) => p.y)) + NODE_H - minY + PAD + LABEL;
+      return {
+        w,
+        h,
+        place: (x, y) => {
+          inner.forEach((p, id) => positions.set(id, { x: x + PAD + p.x - minX, y: y + LABEL + p.y - minY }));
+          clusters.push({ id: `cluster:${folder}`, label: folder, x, y, width: w, height: h });
+        },
+      };
+    });
+  pack(blocks, rowWidth(blocks, 0));
+  return { positions, clusters };
+}
+
+/** Roughly square overall, never narrower than the widest block. */
+function rowWidth(blocks: Block[], cells: number): number {
+  const area = blocks.reduce((a, b) => a + b.w * b.h, 0) + cells * CELL.w * CELL.h;
+  return Math.max(...blocks.map((b) => b.w), Math.sqrt(area) * 1.4, CELL.w * 4);
+}
+
+/** Shelf packing: left to right, wrap when the row is full. */
+function pack(blocks: Block[], width: number): void {
   let x = 0;
   let y = 0;
   let rowH = 0;
   for (const b of blocks) {
-    if (x > 0 && x + b.w > rowWidth) {
+    if (x > 0 && x + b.w > width) {
       x = 0;
       y += rowH + GAP;
       rowH = 0;
@@ -68,7 +123,6 @@ export function layoutGraph(all: GraphNode[], edges: GraphEdge[], mode: LayoutMo
     x += b.w + GAP;
     rowH = Math.max(rowH, b.h);
   }
-  return { positions, clusters: [] };
 }
 
 /** Undirected connected groups, biggest first. */
@@ -92,41 +146,18 @@ function connectedGroups(nodes: GraphNode[], edges: GraphEdge[]): GraphNode[][] 
 function dagreLayout(
   nodes: GraphNode[],
   edges: GraphEdge[],
-  mode: LayoutMode,
-): Positioned & { width: number; height: number } {
-  const g = new Graph({ compound: mode === 'cluster', multigraph: false });
-  g.setGraph({ rankdir: mode === 'TB' ? 'TB' : 'LR', nodesep: 24, ranksep: 60, marginx: 20, marginy: 20 });
+  rankdir: 'LR' | 'TB',
+): { positions: Map<string, Point>; width: number; height: number } {
+  const g = new Graph({ multigraph: false });
+  g.setGraph({ rankdir, nodesep: 24, ranksep: 60, marginx: 20, marginy: 20 });
   g.setDefaultEdgeLabel(() => ({}));
-  const folders = new Set<string>();
-  for (const n of nodes) {
-    g.setNode(n.id, { width: NODE_W, height: NODE_H });
-    if (mode === 'cluster') {
-      const f = `cluster:${folderOf(n.file)}`;
-      if (!folders.has(f)) {
-        folders.add(f);
-        g.setNode(f, { label: folderOf(n.file), paddingTop: 28 } as never);
-      }
-      g.setParent(n.id, f);
-    }
-  }
+  for (const n of nodes) g.setNode(n.id, { width: NODE_W, height: NODE_H });
   for (const e of edges) g.setEdge(e.from, e.to);
   layout(g);
-
-  const positions = new Map<string, { x: number; y: number }>();
+  const positions = new Map<string, Point>();
   for (const n of nodes) {
     const p = g.node(n.id);
     positions.set(n.id, { x: p.x - NODE_W / 2, y: p.y - NODE_H / 2 });
   }
-  const clusters = [...folders].map((id) => {
-    const p = g.node(id);
-    return {
-      id,
-      label: id.slice('cluster:'.length),
-      x: p.x - p.width / 2,
-      y: p.y - p.height / 2 - 14,
-      width: p.width,
-      height: p.height + 14,
-    };
-  });
-  return { positions, clusters, width: g.graph().width ?? 0, height: g.graph().height ?? 0 };
+  return { positions, width: g.graph().width ?? 0, height: g.graph().height ?? 0 };
 }

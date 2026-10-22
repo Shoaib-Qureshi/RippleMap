@@ -6,12 +6,12 @@ import { KIND_ICON } from './FlowNode';
 export function FlowPicker() {
   const { graph, flowRoot, flowDepth, set, showFlow } = useStore();
   const [text, setText] = useState('');
-  // Option text must be unique, so it carries the file too.
+  // Option text must be unique: the id's qualified name (`outer.inner`, `#2` for repeats) plus the file.
   const byText = useMemo(() => {
     const m = new Map<string, string>();
     for (const n of graph.nodes)
       if (n.kind !== 'file' && n.status !== 'removed')
-        m.set(`${KIND_ICON[n.kind]} ${n.label} — ${n.file}`, n.id);
+        m.set(`${KIND_ICON[n.kind]} ${n.id.split('::').pop()} — ${n.file}`, n.id);
     return new Map([...m].sort(([a], [b]) => a.localeCompare(b)));
   }, [graph.nodes]);
   const root = flowRoot ? graph.nodes.find((n) => n.id === flowRoot) : undefined;

@@ -79,9 +79,18 @@ export const useStore = create<State>((set, get) => ({
       case 'init':
         set({ init: { version: msg.version, workspaceName: msg.workspaceName, maxNodes: msg.maxNodes } });
         break;
-      case 'graph:update':
-        set({ graph: msg.graph });
+      case 'graph:update': {
+        // A selection / flow root whose node is gone would leave an empty drawer or a flow that silently
+        // turns back on later: drop them.
+        const ids = new Set(msg.graph.nodes.map((n) => n.id));
+        const { selectedId, flowRoot } = get();
+        set({
+          graph: msg.graph,
+          ...(selectedId && !ids.has(selectedId) ? { selectedId: null } : {}),
+          ...(flowRoot && !ids.has(flowRoot) ? { flowRoot: null } : {}),
+        });
         break;
+      }
       case 'summaries':
         set({ summaries: msg.summaries });
         break;

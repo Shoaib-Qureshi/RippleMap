@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { PayloadEdge, PayloadNode } from '../../../src/shared/messages';
 import type { Positioned } from '../layout';
 import { toMermaid } from '../mermaid';
-import { toSvg, type SvgColors } from '../svgExport';
+import { pngScale, toSvg, type SvgColors } from '../svgExport';
 import { vscode } from '../vscode';
 
 /** Resolves theme variables now, so the exported file looks like the current VS Code theme. */
@@ -23,17 +23,20 @@ function themeColors(): SvgColors {
   };
 }
 
-async function rasterize(svg: string, width: number, height: number, scale = 2): Promise<string> {
+async function rasterize(svg: string, width: number, height: number): Promise<string> {
+  const scale = pngScale(width, height);
   const img = new Image();
   img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   await img.decode();
   const canvas = document.createElement('canvas');
-  canvas.width = width * scale;
-  canvas.height = height * scale;
+  canvas.width = Math.floor(width * scale);
+  canvas.height = Math.floor(height * scale);
   const ctx = canvas.getContext('2d')!;
   ctx.scale(scale, scale);
   ctx.drawImage(img, 0, 0, width, height);
-  return canvas.toDataURL('image/png');
+  const url = canvas.toDataURL('image/png');
+  if (!url.startsWith('data:image/png')) throw new Error('graph too large for PNG; use SVG instead');
+  return url;
 }
 
 /** Export what is currently visible (whole canvas, not just the viewport): PNG, SVG or Mermaid. */
@@ -45,8 +48,10 @@ export function ExportPanel(props: {
   colored: boolean;
 }) {
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const run = async (format: 'png' | 'svg' | 'mermaid') => {
     setBusy(true);
+    setFailed(null);
     try {
       let data: string;
       if (format === 'mermaid')
@@ -67,6 +72,7 @@ export function ExportPanel(props: {
       }
       vscode.postMessage({ type: 'export', format, data });
     } catch (e) {
+      setFailed(`${format.toUpperCase()} export failed: ${e instanceof Error ? e.message : String(e)}`);
       vscode.postMessage({ type: 'error', message: `export ${format} failed: ${String(e)}` });
     } finally {
       setBusy(false);
@@ -84,6 +90,11 @@ export function ExportPanel(props: {
           {f === 'mermaid' ? 'Mermaid' : f.toUpperCase()}
         </button>
       ))}
+      {failed && (
+        <p className="fl-warn" role="alert">
+          {failed}
+        </p>
+      )}
     </Panel>
   );
 }

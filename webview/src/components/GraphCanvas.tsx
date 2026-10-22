@@ -1,5 +1,5 @@
 import { Background, Controls, MarkerType, MiniMap, ReactFlow, type Edge, type Node } from '@xyflow/react';
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { layoutGraph, NODE_H, NODE_W } from '../layout';
 import { activities, sharedNodes, simpleEdges, visibleGraph } from '../view';
@@ -31,20 +31,23 @@ export function GraphCanvas() {
   // Focus fade: hover always; selection only outside flow view (there the whole flow is the focus).
   const active = hover ?? (flowRoot ? null : selectedId);
   const activity = useMemo(() => activities(graph), [graph]);
+  // Typing stays responsive: the (layout-heavy) graph follows the search/folder text at lower priority.
+  const query = useDeferredValue(search);
+  const folderQuery = useDeferredValue(folder);
   const visible = useMemo(
     () =>
       visibleGraph(graph, {
         level,
         mode,
         focus,
-        search,
-        folder,
+        search: query,
+        folder: folderQuery,
         hiddenKinds,
         maxNodes: init?.maxNodes ?? 1500,
         flowRoot,
         flowDepth,
       }),
-    [graph, level, mode, focus, search, folder, hiddenKinds, init, flowRoot, flowDepth],
+    [graph, level, mode, focus, query, folderQuery, hiddenKinds, init, flowRoot, flowDepth],
   );
 
   const shared = useMemo(() => {
@@ -182,6 +185,11 @@ export function GraphCanvas() {
         }}
         zoomOnDoubleClick={false}
         onPaneClick={() => set({ selectedId: null })}
+        // Keyboard (Tab to a node, Enter/Space) selects through React Flow's change events, not onNodeClick.
+        onNodesChange={(changes) => {
+          const sel = changes.find((c) => c.type === 'select' && c.selected);
+          if (sel && 'id' in sel && !sel.id.startsWith('cluster:')) set({ selectedId: sel.id });
+        }}
         onNodeMouseEnter={(_, n) => n.type === 'flow' && setHover(n.id)}
         onNodeMouseLeave={() => setHover(null)}
         proOptions={{ hideAttribution: true }}

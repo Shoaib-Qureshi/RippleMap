@@ -109,3 +109,7 @@ export function toSvg(
   ].join('\n');
   return { svg, width, height };
 }
+
+/** Browsers cap canvases (~32k px a side, ~268 MP); stay well inside so big graphs still export. */
+export const pngScale = (width: number, height: number) =>
+  Math.min(2, 16384 / Math.max(width, height, 1), Math.sqrt(2.6e8 / Math.max(width * height, 1)));

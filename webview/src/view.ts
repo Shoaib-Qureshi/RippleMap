@@ -31,7 +31,7 @@ const LEVEL_EDGES: Record<Level, ReadonlySet<EdgeKind>> = {
   functions: new Set(['calls', 'registers', 'renders', 'extends']),
 };
 
-const inMode = (mode: Mode, status: PayloadNode['status']) =>
+export const inMode = (mode: Mode, status: PayloadNode['status']) =>
   mode === 'diff' || (mode === 'current' ? status !== 'added' : status !== 'removed');
 
 export function visibleGraph(g: GraphPayload, o: ViewOptions): VisibleGraph {

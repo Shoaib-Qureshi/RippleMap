@@ -1,19 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MAX_NOTE, type GraphNode, type PayloadNode, type Summary } from '../../../src/shared/messages';
 import { useStore } from '../store';
-import { activities, describe, folderOf } from '../view';
+import { activities, describe, folderOf, inMode } from '../view';
 import { vscode } from '../vscode';
 
 export function DetailsDrawer() {
-  const { graph, selectedId, flowRoot, notes, summaries, set, showFlow } = useStore();
+  const { graph, selectedId, flowRoot, notes, summaries, mode, set, showFlow } = useStore();
   const activity = useMemo(() => activities(graph), [graph]);
   const node = graph.nodes.find((n) => n.id === selectedId);
   if (!node) return null;
   const doing = activity.get(node.id);
   const about = describe(node, graph);
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
-  const incoming = graph.edges.filter((e) => e.to === node.id);
-  const outgoing = graph.edges.filter((e) => e.from === node.id);
+  // Same rule as the canvas: Current hides added edges, After hides removed; only edges whose other end exists.
+  const shown = (e: (typeof graph.edges)[number], end: 'from' | 'to') =>
+    inMode(mode, e.status) && byId.has(e[end]);
+  const incoming = graph.edges.filter((e) => e.to === node.id && shown(e, 'from'));
+  const outgoing = graph.edges.filter((e) => e.from === node.id && shown(e, 'to'));
+  // Notes attach to code that exists now: not to removed nodes, a proposal's new nodes, or history.
+  const latest = !graph.step || graph.step.index === graph.steps.length - 1;
+  const noteable = latest && node.status !== 'removed' && !(graph.pending && node.status === 'added');
   const open = (n: GraphNode) =>
     vscode.postMessage({ type: 'openFile', file: n.file, line: n.range?.startLine });
   const list = (title: string, edges: typeof incoming, end: 'from' | 'to') => (
@@ -36,6 +42,7 @@ export function DetailsDrawer() {
               <span className="fl-muted">
                 {other.kind === 'file' ? folderOf(other.file) : `${e.kind} · ${other.file}`}
                 {e.confidence !== 'high' ? ` · ${e.confidence} confidence` : ''}
+                {e.status !== 'unchanged' ? ` · ${e.status}` : ''}
               </span>
             </li>
           ) : null;
@@ -74,7 +81,11 @@ export function DetailsDrawer() {
           </button>
         )}
       </div>
-      <NoteEditor key={node.id} node={node} saved={notes[node.id] ?? ''} />
+      {noteable ? (
+        <NoteEditor key={node.id} node={node} saved={notes[node.id] ?? ''} />
+      ) : (
+        <p className="fl-muted">Instructions for the AI can be added to code that exists now.</p>
+      )}
       {list(node.kind === 'file' ? 'Imported by' : 'Callers / incoming', incoming, 'from')}
       {list(node.kind === 'file' ? 'Imports' : 'Callees / outgoing', outgoing, 'to')}
     </aside>
