@@ -368,6 +368,15 @@ export async function run(): Promise<void> {
       console.log(`  ✓ ${name}`);
     } catch (e) {
       console.error(`  ✗ ${name}\n    ${e instanceof Error ? e.stack : String(e)}`);
+      // On GitHub Actions, also as an annotation: shown on the public run page (job logs need a login).
+      if (process.env.GITHUB_ACTIONS) {
+        const esc = (t: string) => t.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+        const detail =
+          e instanceof Error ? (e.stack ?? e.message).split('\n').slice(0, 8).join('\n') : String(e);
+        console.log(
+          `::error title=${esc(`${process.platform}: ${name}`).replace(/[:,]/g, ' ')}::${esc(detail)}`,
+        );
+      }
       failures.push(name);
     }
   }
