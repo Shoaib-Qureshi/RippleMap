@@ -13,7 +13,7 @@ export const initMessage = (ctx: vscode.ExtensionContext): HostToWebview => ({
   maxNodes: config().maxNodes,
 });
 
-/** Hosts the single FlowLens webview panel. The host owns state; the webview only renders it. */
+/** Hosts the single RippleMap webview panel. The host owns state; the webview only renders it. */
 export class PanelProvider implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
   private readyWaiters: (() => void)[] = [];
@@ -37,7 +37,7 @@ export class PanelProvider implements vscode.Disposable {
       return Promise.resolve();
     }
     const root = vscode.Uri.joinPath(this.ctx.extensionUri, 'dist', 'webview');
-    const panel = vscode.window.createWebviewPanel('flowlens.panel', 'FlowLens', vscode.ViewColumn.Beside, {
+    const panel = vscode.window.createWebviewPanel('ripplemap.panel', 'RippleMap', vscode.ViewColumn.Beside, {
       enableScripts: true,
       localResourceRoots: [root],
       retainContextWhenHidden: true,
@@ -109,7 +109,7 @@ export class PanelProvider implements vscode.Disposable {
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="${asset('main.css')}">
-<title>FlowLens</title>
+<title>RippleMap</title>
 </head>
 <body>
 <div id="root"></div>

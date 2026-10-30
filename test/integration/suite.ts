@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { FlowLensApi } from '../../src/extension';
+import type { RippleMapApi } from '../../src/extension';
 
 const tests: [string, () => Promise<void>][] = [];
 const test = (name: string, fn: () => Promise<void>) => tests.push([name, fn]);
@@ -16,12 +16,12 @@ const withTimeout = <T>(p: Thenable<T>, ms: number, what: string) =>
   ]);
 
 test('openPanel completes the ready -> init round trip', async () => {
-  await withTimeout(vscode.commands.executeCommand('flowlens.openPanel'), 15000, 'ready/init');
+  await withTimeout(vscode.commands.executeCommand('ripplemap.openPanel'), 15000, 'ready/init');
   assert.ok(true);
 });
 
-const api = async (): Promise<FlowLensApi> => {
-  const ext = vscode.extensions.getExtension<FlowLensApi>('tier2.flowlens')!;
+const api = async (): Promise<RippleMapApi> => {
+  const ext = vscode.extensions.getExtension<RippleMapApi>('tier2.ripplemap')!;
   return ext.isActive ? ext.exports : ext.activate();
 };
 
@@ -61,7 +61,7 @@ test('saving an edit creates a feed entry with +/- lines and ranges (M1)', async
 
 const forward = (payload: object) => {
   const forwarder = path.join(
-    vscode.extensions.getExtension('tier2.flowlens')!.extensionPath,
+    vscode.extensions.getExtension('tier2.ripplemap')!.extensionPath,
     'hook',
     'hook-forwarder.js',
   );
@@ -81,7 +81,7 @@ test('MCP calls and web fetches via the real forwarder show up as agent activity
     cwd: root,
     tool_name: 'mcp__github__search_repositories',
     tool_use_id: 'toolu_mcp',
-    tool_input: { query: 'flowlens' },
+    tool_input: { query: 'ripplemap' },
     mcp_server: { name: 'github', source: 'user' },
   };
   const pre = forward({ ...mcp, hook_event_name: 'PreToolUse' });
@@ -189,13 +189,19 @@ test('Claude Code hook payloads via the real forwarder produce proposed then app
   }
 });
 
-test('forwarder exits 0 silently when no FlowLens window is listening', async () => {
+test('forwarder exits 0 silently when no RippleMap window is listening', async () => {
   const r = forward({ hook_event_name: 'PreToolUse', cwd: path.parse(process.cwd()).root });
   assert.equal(r.status, 0);
   assert.equal(r.stdout + r.stderr, '');
   const bad = spawnSync(
     'node',
-    [path.join(vscode.extensions.getExtension('tier2.flowlens')!.extensionPath, 'hook', 'hook-forwarder.js')],
+    [
+      path.join(
+        vscode.extensions.getExtension('tier2.ripplemap')!.extensionPath,
+        'hook',
+        'hook-forwarder.js',
+      ),
+    ],
     { input: 'not json', encoding: 'utf8' },
   );
   assert.equal(bad.status, 0);
@@ -349,7 +355,7 @@ test('pending preview appears before disk changes, is discarded on failure, and 
 
 test('webview renders the graph without runtime errors', async () => {
   const { webviewErrors } = await api();
-  await vscode.commands.executeCommand('flowlens.openPanel');
+  await vscode.commands.executeCommand('ripplemap.openPanel');
   await new Promise((r) => setTimeout(r, 1500));
   assert.deepEqual(webviewErrors, []);
 });

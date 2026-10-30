@@ -5,5 +5,5 @@ out/
 *.vsix
 .DS_Store
 CLAUDE_CODE_PROMPT.md
-flowlens.vsix
+ripplemap.vsix
 .env

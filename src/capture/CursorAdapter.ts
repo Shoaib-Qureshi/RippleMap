@@ -3,7 +3,7 @@
 // - `afterMCPExecution` stdin: tool_name, tool_input (JSON *string*), mcp_server_name, mcp_server_url (HTTP/SSE
 //   servers only), result_json (string), duration (ms, excludes approval wait); common fields include
 //   hook_event_name, conversation_id, cursor_version, workspace_roots.
-// - `before*` hooks are permission hooks: exit 0 with empty or invalid stdout BLOCKS the action. FlowLens prints
+// - `before*` hooks are permission hooks: exit 0 with empty or invalid stdout BLOCKS the action. RippleMap prints
 //   nothing, so it must never register one. `after*` hooks have no permission semantics.
 import { clip, type ActivityInput } from './ActivityLog';
 import type { AgentAdapter, EditSink } from './AgentAdapter';
@@ -11,7 +11,7 @@ import type { AgentAdapter, EditSink } from './AgentAdapter';
 type Obj = Record<string, unknown>;
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 
-/** The only Cursor events FlowLens installs. Never add a `before*` event (see above). */
+/** The only Cursor events RippleMap installs. Never add a `before*` event (see above). */
 export const CURSOR_EVENTS = ['afterMCPExecution'] as const;
 
 export const isCursorPayload = (p: Obj) =>

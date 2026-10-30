@@ -1,7 +1,9 @@
 import { HOOK_EVENTS, HOOK_MATCHERS } from '../capture/ClaudeCodeAdapter';
 import { CURSOR_EVENTS } from '../capture/CursorAdapter';
 
-const MARKER = 'flowlens-hook-forwarder';
+const MARKER = 'ripplemap-hook-forwarder';
+/** Hooks installed while the extension was called FlowLens: still ours, replaced on (re)install. */
+export const LEGACY_MARKER = 'flowlens-hook-forwarder';
 
 type Json = Record<string, unknown>;
 interface HookGroup {
@@ -15,10 +17,12 @@ export function forwarderCommand(forwarderPath: string): string {
 }
 
 const isOursHook = (h: unknown) =>
-  typeof h === 'object' && h !== null && String((h as { command?: unknown }).command ?? '').includes(MARKER);
+  typeof h === 'object' &&
+  h !== null &&
+  [MARKER, LEGACY_MARKER].some((m) => String((h as { command?: unknown }).command ?? '').includes(m));
 
 /**
- * An event's groups minus FlowLens hooks: only our commands are dropped (a user hook sharing a group
+ * An event's groups minus RippleMap hooks: only our commands are dropped (a user hook sharing a group
  * stays), groups left empty go. Non-array / malformed values are returned untouched.
  */
 function withoutOurs(groups: unknown): unknown {
@@ -32,8 +36,8 @@ function withoutOurs(groups: unknown): unknown {
 }
 
 /**
- * Returns settings with FlowLens hook groups (re)installed. Existing non-FlowLens hooks are kept untouched;
- * earlier FlowLens groups are replaced, so re-running is idempotent.
+ * Returns settings with RippleMap hook groups (re)installed. Existing non-RippleMap hooks are kept untouched;
+ * earlier RippleMap groups are replaced, so re-running is idempotent.
  */
 export function mergeHooks(settings: Json, command: string): Json {
   const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
@@ -51,7 +55,7 @@ export function mergeHooks(settings: Json, command: string): Json {
   return { ...settings, hooks };
 }
 
-/** Removes only FlowLens hook groups (and empty event arrays left behind). */
+/** Removes only RippleMap hook groups (and empty event arrays left behind). */
 export function removeHooks(settings: Json): Json {
   const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
   for (const [event, groups] of Object.entries(hooks)) {
@@ -67,8 +71,8 @@ export function removeHooks(settings: Json): Json {
 export const FORWARDER_FILE = `${MARKER}.js`;
 
 /**
- * `.cursor/hooks.json` with FlowLens' Cursor hooks (re)installed: `{version: 1, hooks: {event: [{command}]}}`.
- * Other entries are kept; only FlowLens commands are replaced. Only `after*` events (see CursorAdapter).
+ * `.cursor/hooks.json` with RippleMap' Cursor hooks (re)installed: `{version: 1, hooks: {event: [{command}]}}`.
+ * Other entries are kept; only RippleMap commands are replaced. Only `after*` events (see CursorAdapter).
  */
 export function mergeCursorHooks(settings: Json, command: string): Json {
   const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
@@ -80,7 +84,7 @@ export function mergeCursorHooks(settings: Json, command: string): Json {
   return { version: 1, ...settings, hooks };
 }
 
-/** Removes only FlowLens commands from `.cursor/hooks.json` (and event lists left empty). */
+/** Removes only RippleMap commands from `.cursor/hooks.json` (and event lists left empty). */
 export function removeCursorHooks(settings: Json): Json {
   const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
   for (const [event, list] of Object.entries(hooks)) {

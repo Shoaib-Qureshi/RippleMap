@@ -1,4 +1,4 @@
-# CLAUDE.md — FlowLens
+# CLAUDE.md — RippleMap
 
 VS Code extension that visualizes AI-made code edits and the before/after change in an app's workflow graph, in real time. Read `PRD.md`, `ARCHITECTURE.md`, and `ROADMAP.md` before making changes.
 
@@ -14,7 +14,7 @@ VS Code extension that visualizes AI-made code edits and the before/after change
 - `npm run lint` — eslint + prettier check (`npm run format` to fix)
 - `npm test` — vitest unit tests
 - `npm run test:integration` — @vscode/test-electron (downloads VS Code to `.vscode-test/` on first run)
-- `npm run package` — build `flowlens.vsix` with vsce (bundled, no node_modules)
+- `npm run package` — build `ripplemap.vsix` with vsce (bundled, no node_modules)
 - `npm run test:vsix` — package, unpack, run the integration suite against the packaged extension
 - F5 in VS Code — launch Extension Development Host
 
@@ -23,7 +23,7 @@ VS Code extension that visualizes AI-made code edits and the before/after change
 - Extension host is the source of truth; the webview is a view. All host↔webview messages are typed in a shared `messages.ts`.
 - Small modules, one responsibility. Extractors implement the `Extractor` interface; agents implement `AgentAdapter`.
 - Never block the extension host: debounce, chunk long work with `await` yields.
-- Hook forwarder (`hook/hook-forwarder.js`) must **always exit 0** (hard exit at 700 ms, 400 ms request timeout), and prints nothing except FlowLens' own JSON reply (user notes as PreToolUse `additionalContext`).
+- Hook forwarder (`hook/hook-forwarder.js`) must **always exit 0** (hard exit at 700 ms, 400 ms request timeout), and prints nothing except RippleMap' own JSON reply (user notes as PreToolUse `additionalContext`).
 - HookServer binds to `127.0.0.1` only and requires the token header.
 - Agent activity (MCP / web / network calls) stays in memory, shortened; never persisted or sent anywhere.
 - No telemetry. The only network call is `src/ai/summarize.ts`, made when the user clicks "Explain with AI". Never send code anywhere else or automatically.

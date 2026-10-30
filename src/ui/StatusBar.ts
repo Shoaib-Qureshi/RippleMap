@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import type { EditTracker } from '../capture/EditTracker';
 
-/** "FlowLens: 3 edits · +2 nodes · −1 edge". Click opens the panel. */
+/** "RippleMap: 3 edits · +2 nodes · −1 edge". Click opens the panel. */
 export class StatusBar implements vscode.Disposable {
   private readonly item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
   private graphText = '';
 
   constructor(private readonly tracker: EditTracker) {
-    this.item.command = 'flowlens.openPanel';
-    this.item.tooltip = 'Open FlowLens';
+    this.item.command = 'ripplemap.openPanel';
+    this.item.tooltip = 'Open RippleMap';
     tracker.on('change', () => this.render());
     this.render();
     this.item.show();
@@ -24,7 +24,7 @@ export class StatusBar implements vscode.Disposable {
     const n = this.tracker.edits.filter((e) => e.status === 'applied').length;
     const pending = this.tracker.edits.some((e) => e.status === 'proposed');
     this.item.text = [
-      '$(git-compare) FlowLens',
+      '$(git-compare) RippleMap',
       `${n} edit${n === 1 ? '' : 's'}`,
       this.graphText,
       pending ? '$(clock) pending' : '',

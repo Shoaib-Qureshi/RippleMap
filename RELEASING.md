@@ -6,13 +6,10 @@ VS Code Marketplace and Open VSX and creates a GitHub release with the `.vsix`
 
 ## Before the first release
 
-1. **Pick the public name.** "FlowLens" is already used on Open VSX by a similar extension (FlowLensStudios,
-   "FlowLens API Flow"). Check the new name is free on both stores:
-   - <https://marketplace.visualstudio.com/search?term=NAME&target=VSCode>
-   - <https://open-vsx.org/?search=NAME>
-
-   Then change `displayName` (and `name`, the permanent id) in `package.json`, plus user-facing text
-   (commands' `category`, view names, README). The internal `flowlens.*` ids and settings can stay.
+1. **Name: RippleMap.** Checked free on the VS Code Marketplace and Open VSX on 2026-10-30 (the earlier
+   working name, FlowLens, was taken on Open VSX). Still to do yourself: a quick web/trademark search and the
+   domain you want. `name` in `package.json` (`ripplemap`) becomes the permanent extension id
+   `<publisher>.ripplemap` once published.
 
 2. **GitHub repo.** Create it and push this folder. Set `repository`, `homepage` and `bugs` in
    `package.json` and remove `--allow-missing-repository` from the `package` script and the workflow.

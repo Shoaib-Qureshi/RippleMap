@@ -1,4 +1,4 @@
-// Launches a downloaded VS Code with FlowLens loaded and runs the in-host suite.
+// Launches a downloaded VS Code with RippleMap loaded and runs the in-host suite.
 // `--vsix <file>` runs the same suite against the unpacked .vsix instead of the source tree,
 // which proves the package contains everything it needs (bundle, WASM grammars, hook forwarder).
 import { runTests } from '@vscode/test-electron';
@@ -15,8 +15,8 @@ delete process.env.ELECTRON_RUN_AS_NODE;
 let extensionDevelopmentPath = root;
 const vsixArg = process.argv.indexOf('--vsix');
 if (vsixArg !== -1) {
-  const vsix = path.resolve(root, process.argv[vsixArg + 1] ?? 'flowlens.vsix');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flowlens-vsix-'));
+  const vsix = path.resolve(root, process.argv[vsixArg + 1] ?? 'ripplemap.vsix');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ripplemap-vsix-'));
   // A .vsix is a zip. bsdtar (macOS, Windows 10+) reads zips; GNU tar (Linux) does not, so use unzip there.
   if (process.platform === 'linux') execFileSync('unzip', ['-q', vsix, '-d', dir]);
   else execFileSync('tar', ['-xf', vsix, '-C', dir]);
@@ -34,7 +34,7 @@ try {
       path.join(root, 'test', 'fixtures', 'workspace'),
       '--disable-extensions',
       // Short path: macOS/Linux cap Unix socket paths at ~104 chars.
-      `--user-data-dir=${path.join(os.tmpdir(), 'flowlens-test')}`,
+      `--user-data-dir=${path.join(os.tmpdir(), 'ripplemap-test')}`,
     ],
   });
 } catch (err) {

@@ -19,10 +19,10 @@ export async function saveExport(format: keyof typeof EXT, data: string): Promis
   if (bytes.byteLength > MAX_BYTES) throw new Error('export too large');
   const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
   const uri = await vscode.window.showSaveDialog({
-    defaultUri: folder && vscode.Uri.joinPath(folder, `flowlens-graph.${EXT[format]}`),
+    defaultUri: folder && vscode.Uri.joinPath(folder, `ripplemap-graph.${EXT[format]}`),
     filters: { [format.toUpperCase()]: [EXT[format]] },
   });
   if (!uri) return;
   await vscode.workspace.fs.writeFile(uri, bytes);
-  void vscode.window.showInformationMessage(`FlowLens: exported ${vscode.workspace.asRelativePath(uri)}`);
+  void vscode.window.showInformationMessage(`RippleMap: exported ${vscode.workspace.asRelativePath(uri)}`);
 }

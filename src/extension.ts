@@ -9,7 +9,7 @@ import { HookServer } from './capture/HookServer';
 import { ManualEditAdapter } from './capture/ManualEditAdapter';
 import { cleanKey, summarize } from './ai/summarize';
 import { saveExport } from './commands/exportGraph';
-import { FORWARDER_FILE } from './commands/hooksConfig';
+import { FORWARDER_FILE, LEGACY_MARKER } from './commands/hooksConfig';
 import { ensureForwarder, registerHookCommands } from './commands/installHooks';
 import { extractors } from './graph/extractors';
 import { GraphBuilder } from './graph/GraphBuilder';
@@ -29,7 +29,7 @@ import { StatusBar } from './ui/StatusBar';
 import type { GraphPayload, HostToWebview, Summary, WebviewToHost } from './shared/messages';
 import { config, readText, toUri, trackedRel } from './util/workspace';
 
-export interface FlowLensApi {
+export interface RippleMapApi {
   tracker: EditTracker;
   /** Agent calls outside the code (MCP / web / network commands). */
   activity: ActivityLog;
@@ -37,15 +37,15 @@ export interface FlowLensApi {
   graph: GraphService;
   /** Resolves when the initial index has finished. */
   indexed: Promise<void>;
-  /** Errors reported by the webview (also logged to the FlowLens output channel). */
+  /** Errors reported by the webview (also logged to the RippleMap output channel). */
   webviewErrors: string[];
 }
 
-const NOTES_KEY = 'flowlens.notes';
+const NOTES_KEY = 'ripplemap.notes';
 /** Same cap as readText; bigger files aren't previewed. */
 const MAX_SYNC_READ = 2 * 1024 * 1024;
-const SUMMARIES_KEY = 'flowlens.summaries';
-const AI_KEY_SECRET = 'flowlens.aiKey';
+const SUMMARIES_KEY = 'ripplemap.summaries';
+const AI_KEY_SECRET = 'ripplemap.aiKey';
 type StoredNote = AgentNote & { file: string };
 const AGENT_NAME: Record<string, string> = {
   'claude-code': 'Claude Code',
@@ -53,7 +53,7 @@ const AGENT_NAME: Record<string, string> = {
   'other-agent': 'Agent',
 };
 
-export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensApi> {
+export async function activate(ctx: vscode.ExtensionContext): Promise<RippleMapApi> {
   const tracker = new EditTracker();
   const activity = new ActivityLog();
   const sink = {
@@ -102,19 +102,19 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   const graph = new GraphService(new GraphBuilder(parser, extractors), config().snapshotLimit);
   const statusBar = new StatusBar(tracker);
 
-  const log = vscode.window.createOutputChannel('FlowLens', { log: true });
+  const log = vscode.window.createOutputChannel('RippleMap', { log: true });
   const webviewErrors: string[] = [];
   const onViewMessage = (m: Exclude<WebviewToHost, { type: 'ready' }>) => {
     if (m.type === 'popout') {
       vscode.commands
-        .executeCommand(m.target === 'browser' ? 'flowlens.openInBrowser' : 'flowlens.openInNewWindow')
-        .then(undefined, (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: ${String(e)}`));
+        .executeCommand(m.target === 'browser' ? 'ripplemap.openInBrowser' : 'ripplemap.openInNewWindow')
+        .then(undefined, (e: unknown) => void vscode.window.showErrorMessage(`RippleMap: ${String(e)}`));
     } else if (m.type === 'error') {
       if (webviewErrors.length < 100) webviewErrors.push(m.message.slice(0, 2000));
       log.error(`webview: ${m.message.slice(0, 2000)}`);
     } else if (m.type === 'export') {
       saveExport(m.format, m.data).catch(
-        (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: export failed: ${String(e)}`),
+        (e: unknown) => void vscode.window.showErrorMessage(`RippleMap: export failed: ${String(e)}`),
       );
     } else if (m.type === 'note:set') {
       const n = graph.graph.nodes.get(m.nodeId);
@@ -126,7 +126,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       void ctx.workspaceState.update(NOTES_KEY, notes);
       postNotes();
     } else if (m.type === 'showActivity') {
-      void vscode.commands.executeCommand('flowlens.activity.focus');
+      void vscode.commands.executeCommand('ripplemap.activity.focus');
     } else if (m.type === 'ai:summarize') {
       void explain(m.nodeId);
     } else if (m.type === 'scrub') {
@@ -144,7 +144,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
           preserveFocus: true,
           preview: true,
         })
-        .then(undefined, () => void vscode.window.showWarningMessage(`FlowLens: can't open ${m.file}.`));
+        .then(undefined, () => void vscode.window.showWarningMessage(`RippleMap: can't open ${m.file}.`));
     }
   };
   const panel = new PanelProvider(ctx, onViewMessage);
@@ -183,7 +183,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
   post({ type: 'summaries', summaries });
   const promptKey = async (): Promise<string | undefined> => {
     const k = await vscode.window.showInputBox({
-      title: 'FlowLens: AI API key',
+      title: 'RippleMap: AI API key',
       prompt:
         'OpenRouter (or other OpenAI-compatible) API key. Stored in VS Code secret storage. Empty = remove.',
       password: true,
@@ -209,7 +209,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
         ? process.env.OPENROUTER_API_KEY
         : undefined;
       const key = (await ctx.secrets.get(AI_KEY_SECRET)) || envKey || (await promptKey());
-      if (!key) throw new Error('No API key set. Run "FlowLens: Set AI API Key".');
+      if (!key) throw new Error('No API key set. Run "RippleMap: Set AI API Key".');
       const text = await readText(uri);
       if (text === undefined) throw new Error(`Can't read ${n.file}.`);
       const code =
@@ -286,8 +286,8 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     graph,
     statusBar,
     new Decorations(tracker),
-    vscode.window.registerTreeDataProvider('flowlens.editFeed', new EditFeedProvider(tracker)),
-    vscode.window.registerTreeDataProvider('flowlens.activity', new ActivityProvider(activity)),
+    vscode.window.registerTreeDataProvider('ripplemap.editFeed', new EditFeedProvider(tracker)),
+    vscode.window.registerTreeDataProvider('ripplemap.activity', new ActivityProvider(activity)),
     registerEditDiffView(tracker),
     new ManualEditAdapter().start(sink),
     claude.start(sink),
@@ -295,31 +295,31 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     hookServer,
     registerHookCommands(ctx),
     vscode.workspace.onDidOpenTextDocument(seed),
-    vscode.commands.registerCommand('flowlens.openPanel', () => panel.open()),
-    vscode.commands.registerCommand('flowlens.openInBrowser', async () => {
+    vscode.commands.registerCommand('ripplemap.openPanel', () => panel.open()),
+    vscode.commands.registerCommand('ripplemap.openInBrowser', async () => {
       // asExternalUri: port-forwarded URL in Remote-SSH / WSL / Codespaces (same URL locally).
       const external = await vscode.env.asExternalUri(vscode.Uri.parse(await browser.url()));
       browser.allowHost(external.authority);
       const opened = await vscode.env.openExternal(external);
       if (!opened) {
         await vscode.env.clipboard.writeText(external.toString(true));
-        void vscode.window.showInformationMessage('FlowLens: browser URL copied to the clipboard.');
+        void vscode.window.showInformationMessage('RippleMap: browser URL copied to the clipboard.');
       }
     }),
-    vscode.commands.registerCommand('flowlens.openInNewWindow', async () => {
+    vscode.commands.registerCommand('ripplemap.openInNewWindow', async () => {
       await panel.open();
       panel.reveal();
       await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
     }),
-    vscode.commands.registerCommand('flowlens.clearHistory', () => {
+    vscode.commands.registerCommand('ripplemap.clearHistory', () => {
       tracker.clear();
       activity.clear();
     }),
-    vscode.commands.registerCommand('flowlens.setAiKey', async () => {
+    vscode.commands.registerCommand('ripplemap.setAiKey', async () => {
       if ((await promptKey()) !== undefined)
-        void vscode.window.showInformationMessage('FlowLens: AI key saved in VS Code secret storage.');
+        void vscode.window.showInformationMessage('RippleMap: AI key saved in VS Code secret storage.');
     }),
-    vscode.commands.registerCommand('flowlens.reindex', () => runIndex('Re-index')),
+    vscode.commands.registerCommand('ripplemap.reindex', () => runIndex('Re-index')),
   );
 
   const runIndex = (label = 'Initial index') =>
@@ -327,7 +327,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       post({ type: 'index:progress', done, total }),
     ).then(
       () => undefined,
-      (e: unknown) => void vscode.window.showErrorMessage(`FlowLens: indexing failed: ${String(e)}`),
+      (e: unknown) => void vscode.window.showErrorMessage(`RippleMap: indexing failed: ${String(e)}`),
     );
   const indexed = config().indexOnStartup ? runIndex() : Promise.resolve();
   // Forget notes/explanations for nodes that no longer exist (renamed/deleted while VS Code was closed).
@@ -354,7 +354,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
         hookServer.removeDirs(e.removed.map((f) => f.uri.fsPath));
       } catch (err) {
         void vscode.window.showWarningMessage(
-          `FlowLens: hooks for new folders unavailable (${String(err)}).`,
+          `RippleMap: hooks for new folders unavailable (${String(err)}).`,
         );
       }
       graph.builder.facts.clear();
@@ -366,20 +366,24 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     await hookServer.start((vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath));
   } catch (e) {
     void vscode.window.showWarningMessage(
-      `FlowLens: hook server unavailable (${String(e)}); AI edits will show as manual.`,
+      `RippleMap: hook server unavailable (${String(e)}); AI edits will show as manual.`,
     );
   }
   // Keep the installed hook path pointing at the current forwarder (separate: the server may be fine).
   await ensureForwarder(ctx).catch(
     (e: unknown) =>
-      void vscode.window.showWarningMessage(`FlowLens: couldn't update the hook script (${String(e)}).`),
+      void vscode.window.showWarningMessage(`RippleMap: couldn't update the hook script (${String(e)}).`),
   );
-  void offerHookUpdate();
+  void offerHookUpdate(ctx);
   return { tracker, activity, hookServer, graph, indexed, webviewErrors };
 }
 
-/** Hooks installed before MCP/web activity existed only watch edits: offer a one-click update (never automatic). */
-async function offerHookUpdate(): Promise<void> {
+/**
+ * Offers a one-click hook update (never automatic) when the installed hooks are out of date: they predate
+ * MCP/web activity, or point at another copy of the forwarder (e.g. installed under the old FlowLens name).
+ */
+async function offerHookUpdate(ctx: vscode.ExtensionContext): Promise<void> {
+  const current = vscode.Uri.joinPath(ctx.globalStorageUri, FORWARDER_FILE).fsPath.replace(/\\/g, '/');
   for (const f of vscode.workspace.workspaceFolders ?? []) {
     let text: string;
     try {
@@ -390,12 +394,13 @@ async function offerHookUpdate(): Promise<void> {
     } catch {
       continue; // no settings file: nothing installed here
     }
-    if (!text.includes(FORWARDER_FILE) || text.includes(OUTSIDE_MARKER)) continue;
+    const ours = text.includes(FORWARDER_FILE) || text.includes(LEGACY_MARKER);
+    if (!ours || (text.includes(OUTSIDE_MARKER) && text.includes(current))) continue;
     const pick = await vscode.window.showInformationMessage(
-      'FlowLens can now show the MCP servers and websites Claude Code reaches. Update its Claude Code hooks?',
+      'RippleMap: your Claude Code hooks are out of date (older version or the old FlowLens name). Update them?',
       'Update hooks',
     );
-    if (pick) await vscode.commands.executeCommand('flowlens.installHooks');
+    if (pick) await vscode.commands.executeCommand('ripplemap.installHooks');
     return;
   }
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// FlowLens hook forwarder. Claude Code runs this for each configured hook event.
-// Contract: never block, ALWAYS exit 0. Prints nothing, except FlowLens' JSON reply when there is one
+// RippleMap hook forwarder. Claude Code runs this for each configured hook event.
+// Contract: never block, ALWAYS exit 0. Prints nothing, except RippleMap' JSON reply when there is one
 // (the user's notes for the file being edited, as PreToolUse additionalContext).
 'use strict';
 const crypto = require('crypto');
@@ -21,14 +21,14 @@ function normalizeDir(p) {
 function discoveryPath(dir) {
   const hash = crypto.createHash('sha256').update(normalizeDir(dir)).digest('hex').slice(0, 16);
   const uid = typeof process.getuid === 'function' ? process.getuid() : undefined;
-  return path.join(os.tmpdir(), uid === undefined ? 'flowlens' : 'flowlens-' + uid, hash + '.json');
+  return path.join(os.tmpdir(), uid === undefined ? 'ripplemap' : 'ripplemap-' + uid, hash + '.json');
 }
 /** Only trust discovery files we own (another local user could plant one in a shared tmp). */
 function ownedByMe(file) {
   if (typeof process.getuid !== 'function') return true;
   return fs.statSync(file).uid === process.getuid();
 }
-/** Nearest ancestor of `dir` (inclusive) with a running FlowLens window. */
+/** Nearest ancestor of `dir` (inclusive) with a running RippleMap window. */
 function findServer(dir) {
   for (let d = path.resolve(dir); ; d = path.dirname(d)) {
     try {
@@ -69,7 +69,7 @@ function main() {
           headers: {
             'content-type': 'application/json',
             'content-length': body.length,
-            'x-flowlens-token': server.token,
+            'x-ripplemap-token': server.token,
           },
         },
         (res) => {

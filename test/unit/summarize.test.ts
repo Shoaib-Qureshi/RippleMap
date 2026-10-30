@@ -43,7 +43,7 @@ describe('summarize', () => {
       summarize(cfg, { file: 'a.ts', code: '' }, reply(status, body) as unknown as typeof fetch);
     await expect(run(401, { error: { message: 'No auth' } })).rejects.toThrow(/Set AI API Key/);
     await expect(run(429, {})).rejects.toThrow(/Rate limited/);
-    await expect(run(200, { choices: [{ message: { content: '' } }] })).rejects.toThrow(/flowlens.ai.model/);
+    await expect(run(200, { choices: [{ message: { content: '' } }] })).rejects.toThrow(/ripplemap.ai.model/);
     const down = (async () => {
       throw new TypeError('fetch failed');
     }) as unknown as typeof fetch;

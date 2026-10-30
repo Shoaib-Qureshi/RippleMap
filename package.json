@@ -1,6 +1,6 @@
 {
-  "name": "flowlens",
-  "displayName": "FlowLens",
+  "name": "ripplemap",
+  "displayName": "RippleMap",
   "description": "See what your AI agent changed and how your app's workflow graph changes, in real time.",
   "version": "0.1.0",
   "publisher": "tier2",
@@ -41,136 +41,136 @@
   "contributes": {
     "commands": [
       {
-        "command": "flowlens.openPanel",
+        "command": "ripplemap.openPanel",
         "title": "Open Panel",
-        "category": "FlowLens",
+        "category": "RippleMap",
         "icon": "$(graph)"
       },
       {
-        "command": "flowlens.openInBrowser",
+        "command": "ripplemap.openInBrowser",
         "title": "Open Graph in Browser",
-        "category": "FlowLens",
+        "category": "RippleMap",
         "icon": "$(globe)"
       },
       {
-        "command": "flowlens.openInNewWindow",
+        "command": "ripplemap.openInNewWindow",
         "title": "Open Graph in New Window",
-        "category": "FlowLens",
+        "category": "RippleMap",
         "icon": "$(multiple-windows)"
       },
       {
-        "command": "flowlens.clearHistory",
+        "command": "ripplemap.clearHistory",
         "title": "Clear Edit History",
-        "category": "FlowLens",
+        "category": "RippleMap",
         "icon": "$(clear-all)"
       },
       {
-        "command": "flowlens.reindex",
+        "command": "ripplemap.reindex",
         "title": "Re-index Workspace",
-        "category": "FlowLens",
+        "category": "RippleMap",
         "icon": "$(refresh)"
       },
       {
-        "command": "flowlens.installHooks",
+        "command": "ripplemap.installHooks",
         "title": "Install Claude Code Hooks",
-        "category": "FlowLens"
+        "category": "RippleMap"
       },
       {
-        "command": "flowlens.removeHooks",
+        "command": "ripplemap.removeHooks",
         "title": "Remove Claude Code Hooks",
-        "category": "FlowLens"
+        "category": "RippleMap"
       },
       {
-        "command": "flowlens.installCursorHooks",
+        "command": "ripplemap.installCursorHooks",
         "title": "Install Cursor Hooks (MCP activity)",
-        "category": "FlowLens"
+        "category": "RippleMap"
       },
       {
-        "command": "flowlens.removeCursorHooks",
+        "command": "ripplemap.removeCursorHooks",
         "title": "Remove Cursor Hooks",
-        "category": "FlowLens"
+        "category": "RippleMap"
       },
       {
-        "command": "flowlens.setAiKey",
+        "command": "ripplemap.setAiKey",
         "title": "Set AI API Key",
-        "category": "FlowLens"
+        "category": "RippleMap"
       },
       {
-        "command": "flowlens.showEditDiff",
+        "command": "ripplemap.showEditDiff",
         "title": "Show Edit Diff",
-        "category": "FlowLens"
+        "category": "RippleMap"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "flowlens",
-          "title": "FlowLens",
+          "id": "ripplemap",
+          "title": "RippleMap",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "flowlens": [
+      "ripplemap": [
         {
-          "id": "flowlens.editFeed",
+          "id": "ripplemap.editFeed",
           "name": "Edit Feed"
         },
         {
-          "id": "flowlens.activity",
+          "id": "ripplemap.activity",
           "name": "Agent Activity"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "flowlens.editFeed",
-        "contents": "No edits yet. Save a file or let your AI agent edit one.\n[Install Claude Code Hooks](command:flowlens.installHooks)\n[Open Graph Panel](command:flowlens.openPanel)"
+        "view": "ripplemap.editFeed",
+        "contents": "No edits yet. Save a file or let your AI agent edit one.\n[Install Claude Code Hooks](command:ripplemap.installHooks)\n[Open Graph Panel](command:ripplemap.openPanel)"
       },
       {
-        "view": "flowlens.activity",
-        "contents": "Nothing yet. When Claude Code calls an MCP server, fetches or searches the web, or runs a network command (curl, git push, npm install\u2026), it shows up here.\n[Install Claude Code Hooks](command:flowlens.installHooks)"
+        "view": "ripplemap.activity",
+        "contents": "Nothing yet. When Claude Code calls an MCP server, fetches or searches the web, or runs a network command (curl, git push, npm install\u2026), it shows up here.\n[Install Claude Code Hooks](command:ripplemap.installHooks)"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "flowlens.openPanel",
-          "when": "view == flowlens.editFeed",
+          "command": "ripplemap.openPanel",
+          "when": "view == ripplemap.editFeed",
           "group": "navigation"
         },
         {
-          "command": "flowlens.openInBrowser",
-          "when": "view == flowlens.editFeed",
+          "command": "ripplemap.openInBrowser",
+          "when": "view == ripplemap.editFeed",
           "group": "navigation"
         },
         {
-          "command": "flowlens.openInNewWindow",
-          "when": "view == flowlens.editFeed",
+          "command": "ripplemap.openInNewWindow",
+          "when": "view == ripplemap.editFeed",
           "group": "navigation"
         },
         {
-          "command": "flowlens.clearHistory",
-          "when": "view == flowlens.editFeed",
+          "command": "ripplemap.clearHistory",
+          "when": "view == ripplemap.editFeed",
           "group": "navigation"
         },
         {
-          "command": "flowlens.clearHistory",
-          "when": "view == flowlens.activity",
+          "command": "ripplemap.clearHistory",
+          "when": "view == ripplemap.activity",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
-          "command": "flowlens.showEditDiff",
+          "command": "ripplemap.showEditDiff",
           "when": "false"
         }
       ]
     },
     "configuration": {
-      "title": "FlowLens",
+      "title": "RippleMap",
       "properties": {
-        "flowlens.excludeFolders": {
+        "ripplemap.excludeFolders": {
           "type": "array",
           "items": {
             "type": "string"
@@ -194,36 +194,36 @@
           ],
           "description": "Folder names ignored for edit tracking and graph indexing."
         },
-        "flowlens.decorationFadeSeconds": {
+        "ripplemap.decorationFadeSeconds": {
           "type": "number",
           "default": 60,
           "minimum": 5,
           "description": "How long edited-line highlights take to fade out."
         },
-        "flowlens.indexOnStartup": {
+        "ripplemap.indexOnStartup": {
           "type": "boolean",
           "default": true,
           "description": "Index the workspace graph when VS Code starts."
         },
-        "flowlens.maxNodes": {
+        "ripplemap.maxNodes": {
           "type": "number",
           "default": 1500,
           "minimum": 50,
           "description": "Maximum nodes rendered at once; the most connected are kept."
         },
-        "flowlens.snapshotLimit": {
+        "ripplemap.snapshotLimit": {
           "type": "number",
           "default": 50,
           "minimum": 2,
           "description": "How many graph snapshots to keep for the diff and time scrubber."
         },
-        "flowlens.ai.baseUrl": {
+        "ripplemap.ai.baseUrl": {
           "type": "string",
           "default": "https://openrouter.ai/api/v1",
           "scope": "application",
           "markdownDescription": "OpenAI-compatible API used by **Explain with AI** (OpenRouter by default; e.g. `https://generativelanguage.googleapis.com/v1beta/openai` for Gemini, `http://localhost:11434/v1` for Ollama). Only contacted when you click the button. Application-scoped so a workspace can't redirect your key."
         },
-        "flowlens.ai.model": {
+        "ripplemap.ai.model": {
           "type": "string",
           "default": "openrouter/free",
           "markdownDescription": "Model for **Explain with AI**. `openrouter/free` picks an available free OpenRouter model; any model id works (e.g. `google/gemma-4-31b-it:free`)."
@@ -244,8 +244,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:integration": "npm run build && node test/integration/runTests.mjs",
-    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository --no-rewrite-relative-links -o flowlens.vsix",
-    "test:vsix": "npm run package && node test/integration/runTests.mjs --vsix flowlens.vsix"
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository --no-rewrite-relative-links -o ripplemap.vsix",
+    "test:vsix": "npm run package && node test/integration/runTests.mjs --vsix ripplemap.vsix"
   },
   "devDependencies": {
     "@dagrejs/dagre": "^3.1.1",

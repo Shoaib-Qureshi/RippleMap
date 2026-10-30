@@ -1,4 +1,4 @@
-// Opt-in AI summary of a file or function. The ONLY network call in FlowLens, made when the user clicks
+// Opt-in AI summary of a file or function. The ONLY network call in RippleMap, made when the user clicks
 // "Explain with AI". Speaks the OpenAI-compatible chat API (OpenRouter by default; Gemini, Ollama, OpenAI work too).
 
 export interface AiConfig {
@@ -44,7 +44,7 @@ export async function summarize(
         authorization: `Bearer ${cleanKey(cfg.key)}`,
         'content-type': 'application/json',
         // OpenRouter app attribution; ignored by other providers.
-        'x-title': 'FlowLens',
+        'x-title': 'RippleMap',
       },
       body: JSON.stringify({
         model: cfg.model,
@@ -74,13 +74,13 @@ export async function summarize(
   };
   if (!res.ok) {
     const detail = body.error?.message ?? res.statusText;
-    if (res.status === 401) throw new Error(`API key rejected (${detail}). Run "FlowLens: Set AI API Key".`);
+    if (res.status === 401) throw new Error(`API key rejected (${detail}). Run "RippleMap: Set AI API Key".`);
     if (res.status === 429)
       throw new Error(`Rate limited (free models have limits); try again shortly. ${detail}`);
     throw new Error(`AI request failed (${res.status}): ${detail}`);
   }
   const text = body.choices?.[0]?.message?.content?.trim();
   if (!text)
-    throw new Error(`${cfg.model} returned no text; try another model in the flowlens.ai.model setting.`);
+    throw new Error(`${cfg.model} returned no text; try another model in the ripplemap.ai.model setting.`);
   return text.replace(/\s+/g, ' ');
 }

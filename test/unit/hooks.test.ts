@@ -132,9 +132,9 @@ describe('ClaudeCodeAdapter', () => {
 });
 
 describe('hooks config merge', () => {
-  const cmd = forwarderCommand('C:\\Users\\me\\flowlens-hook-forwarder.js');
+  const cmd = forwarderCommand('C:\\Users\\me\\ripplemap-hook-forwarder.js');
   it('uses forward slashes and quotes', () => {
-    expect(cmd).toBe('node "C:/Users/me/flowlens-hook-forwarder.js"');
+    expect(cmd).toBe('node "C:/Users/me/ripplemap-hook-forwarder.js"');
   });
   it('keeps user hooks, is idempotent, and removes cleanly', () => {
     const user = { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo hi' }] };
@@ -161,7 +161,7 @@ describe('hooks config merge', () => {
 });
 
 describe('hooks config: user hooks are never lost', () => {
-  const cmd = forwarderCommand('/x/flowlens-hook-forwarder.js');
+  const cmd = forwarderCommand('/x/ripplemap-hook-forwarder.js');
   it('keeps a user hook that shares a group with ours, and leaves malformed values alone', () => {
     const settings = {
       hooks: {
@@ -185,6 +185,20 @@ describe('hooks config: user hooks are never lost', () => {
       { matcher: 'Edit', hooks: [{ type: 'command', command: 'mine' }] },
     ]);
     expect(removed.hooks.Stop).toBe('not-a-list');
+  });
+});
+
+describe('upgrade from the FlowLens name', () => {
+  it('replaces hooks installed as flowlens-hook-forwarder instead of adding a second one', () => {
+    const old = {
+      matcher: 'Edit|Write|MultiEdit',
+      hooks: [{ type: 'command', command: 'node "/old/flowlens-hook-forwarder.js"' }],
+    };
+    const cmd = forwarderCommand('/new/ripplemap-hook-forwarder.js');
+    const merged = mergeHooks({ hooks: { PreToolUse: [old] } }, cmd) as { hooks: Record<string, unknown[]> };
+    expect(JSON.stringify(merged.hooks.PreToolUse)).not.toContain('flowlens-hook-forwarder');
+    expect(merged.hooks.PreToolUse).toHaveLength(1);
+    expect(removeHooks({ hooks: { PreToolUse: [old] } })).toEqual({});
   });
 });
 

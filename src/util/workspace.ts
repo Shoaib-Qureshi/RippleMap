@@ -27,7 +27,7 @@ export function toUri(rel: string): vscode.Uri | undefined {
 }
 
 export function config() {
-  const c = vscode.workspace.getConfiguration('flowlens');
+  const c = vscode.workspace.getConfiguration('ripplemap');
   return {
     excludeFolders: new Set(c.get<string[]>('excludeFolders', [])),
     decorationFadeSeconds: c.get<number>('decorationFadeSeconds', 60),

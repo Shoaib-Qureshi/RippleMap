@@ -85,7 +85,7 @@ export function registerHookCommands(ctx: vscode.ExtensionContext): vscode.Dispo
   const run = async (agent: keyof typeof TARGETS, install: boolean) => {
     const target = TARGETS[agent];
     const folders = vscode.workspace.workspaceFolders ?? [];
-    if (!folders.length) return void vscode.window.showWarningMessage('FlowLens: open a folder first.');
+    if (!folders.length) return void vscode.window.showWarningMessage('RippleMap: open a folder first.');
     try {
       const cmd = install ? forwarderCommand((await ensureForwarder(ctx)).fsPath) : '';
       const written = [];
@@ -95,17 +95,17 @@ export function registerHookCommands(ctx: vscode.ExtensionContext): vscode.Dispo
         );
       void vscode.window.showInformationMessage(
         install
-          ? `FlowLens: ${target.name} hooks installed in ${written.map((u) => vscode.workspace.asRelativePath(u)).join(', ')}. Start a new ${target.name} agent session to pick them up.`
-          : `FlowLens: ${target.name} hooks removed.`,
+          ? `RippleMap: ${target.name} hooks installed in ${written.map((u) => vscode.workspace.asRelativePath(u)).join(', ')}. Start a new ${target.name} agent session to pick them up.`
+          : `RippleMap: ${target.name} hooks removed.`,
       );
     } catch (e) {
-      void vscode.window.showErrorMessage(`FlowLens: ${e instanceof Error ? e.message : String(e)}`);
+      void vscode.window.showErrorMessage(`RippleMap: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
   return vscode.Disposable.from(
-    vscode.commands.registerCommand('flowlens.installHooks', () => run('claude', true)),
-    vscode.commands.registerCommand('flowlens.removeHooks', () => run('claude', false)),
-    vscode.commands.registerCommand('flowlens.installCursorHooks', () => run('cursor', true)),
-    vscode.commands.registerCommand('flowlens.removeCursorHooks', () => run('cursor', false)),
+    vscode.commands.registerCommand('ripplemap.installHooks', () => run('claude', true)),
+    vscode.commands.registerCommand('ripplemap.removeHooks', () => run('claude', false)),
+    vscode.commands.registerCommand('ripplemap.installCursorHooks', () => run('cursor', true)),
+    vscode.commands.registerCommand('ripplemap.removeCursorHooks', () => run('cursor', false)),
   );
 }

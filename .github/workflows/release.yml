@@ -29,18 +29,18 @@ jobs:
 
       - name: Package (README links and images point at this tag on GitHub)
         run: >
-          npx vsce package --no-dependencies --allow-missing-repository -o flowlens.vsix
+          npx vsce package --no-dependencies --allow-missing-repository -o ripplemap.vsix
           --baseContentUrl "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}"
           --baseImagesUrl "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}"
 
       - name: Publish to the VS Code Marketplace
-        run: npx vsce publish --oidc --packagePath flowlens.vsix
+        run: npx vsce publish --oidc --packagePath ripplemap.vsix
 
       - name: Publish to Open VSX (Cursor, Windsurf, VSCodium)
         if: env.OVSX_PAT != ''
-        run: npx --yes ovsx@1.3.0 publish flowlens.vsix -p "$OVSX_PAT"
+        run: npx --yes ovsx@1.3.0 publish ripplemap.vsix -p "$OVSX_PAT"
 
       - name: GitHub release with the .vsix
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" flowlens.vsix --title "${GITHUB_REF_NAME}" --generate-notes
+        run: gh release create "${GITHUB_REF_NAME}" ripplemap.vsix --title "${GITHUB_REF_NAME}" --generate-notes

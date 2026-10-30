@@ -1,6 +1,6 @@
-# FlowLens — Product Requirements Document
+# RippleMap — Product Requirements Document
 
-> Working name: **FlowLens**. A VS Code extension that shows, in real time while you vibecode, *what the AI changed*, *how your app's workflow works now*, and *how that workflow changes after the edit*.
+> Working name: **RippleMap**. A VS Code extension that shows, in real time while you vibecode, *what the AI changed*, *how your app's workflow works now*, and *how that workflow changes after the edit*.
 
 **Status:** Draft v0.1 · **Owner:** Shoaib · **Platform:** VS Code (Windows, macOS, Linux; developed on Windows)
 
@@ -73,7 +73,7 @@ When vibecoding with an AI agent (Claude Code, Copilot agent, Cursor-style tools
 - F18. Optional AI explanation of an edit's flow impact (opt-in, uses user's own API key / VS Code Language Model API).
 
 ### 6.5 Integration & Export
-- F19. One-command setup: **"FlowLens: Install Claude Code Hooks"** writes hook config safely.
+- F19. One-command setup: **"RippleMap: Install Claude Code Hooks"** writes hook config safely.
 - F20. Optional local **MCP server** exposing the current graph to agents.
 - F21. Export graph / diff as PNG, SVG, or Mermaid.
 - F22. Theme-aware UI (light/dark).
@@ -115,17 +115,17 @@ When vibecoding with an AI agent (Claude Code, Copilot agent, Cursor-style tools
 
 ## 10. UX overview
 
-- **Activity Bar icon → FlowLens sidebar:** Edit Feed (tree view) + filters.
+- **Activity Bar icon → RippleMap sidebar:** Edit Feed (tree view) + filters.
 - **Main panel (webview):** graph canvas with top toolbar [Current | After | Diff] toggle, layout selector, search, time scrubber at bottom.
 - **Details drawer:** selected node/edit with code snippet, callers/callees, and impact summary.
-- **Status bar item:** "FlowLens: 3 edits · +2 nodes · −1 edge" click to open panel.
+- **Status bar item:** "RippleMap: 3 edits · +2 nodes · −1 edge" click to open panel.
 
 ## 11. Success metrics
 
 - Time from edit landing to graph updated: p95 < 500 ms.
 - User can identify "what this edit changed in the flow" in <10 s (qualitative test).
 - Graph diff correctness: >95% accuracy on a fixture suite of known edits.
-- Zero agent failures caused by FlowLens hooks.
+- Zero agent failures caused by RippleMap hooks.
 
 ## 12. Risks & mitigations
 

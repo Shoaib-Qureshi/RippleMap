@@ -24,7 +24,7 @@ export async function indexWorkspace(
   const uris = await vscode.workspace.findFiles(include, exclude, MAX_FILES);
 
   return vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Window, title: 'FlowLens: indexing' },
+    { location: vscode.ProgressLocation.Window, title: 'RippleMap: indexing' },
     async (progress) => {
       let done = 0;
       for (let i = 0; i < uris.length; i += CHUNK) {

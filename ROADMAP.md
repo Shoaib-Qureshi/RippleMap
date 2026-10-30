@@ -1,10 +1,10 @@
-# FlowLens — Roadmap & Milestones
+# RippleMap — Roadmap & Milestones
 
 Each milestone ends with a working, demoable extension and a git commit/tag.
 
 ## M0 — Scaffold (½ day)
 - Extension scaffold (TypeScript, esbuild), webview scaffold (Vite + React), F5 debug works on Windows.
-- Command `FlowLens: Open Panel` shows an empty webview with typed messaging.
+- Command `RippleMap: Open Panel` shows an empty webview with typed messaging.
 - Lint, format, vitest set up.
 **Accept:** panel opens; round-trip `ready` ↔ `init` message works.
 
@@ -14,7 +14,7 @@ Each milestone ends with a working, demoable extension and a git commit/tag.
 **Accept:** editing any file creates a feed entry with file, +/- lines, and changed ranges.
 
 ## M2 — Claude Code hooks (1–2 days)
-- `HookServer` with token auth, `hook-forwarder.js`, `FlowLens: Install Claude Code Hooks` (safe merge + backup).
+- `HookServer` with token auth, `hook-forwarder.js`, `RippleMap: Install Claude Code Hooks` (safe merge + backup).
 - `ClaudeCodeAdapter` for Pre/PostToolUse; source labeling (AI vs manual).
 **Accept:** running Claude Code on a test repo produces `proposed` then `applied` events; agent never slowed or blocked.
 

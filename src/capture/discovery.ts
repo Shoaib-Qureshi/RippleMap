@@ -10,12 +10,12 @@ export function normalizeDir(p: string, platform = process.platform): string {
 }
 
 /**
- * Per-user folder (`flowlens-<uid>` on POSIX): /tmp is shared on Linux, and another user could otherwise
+ * Per-user folder (`ripplemap-<uid>` on POSIX): /tmp is shared on Linux, and another user could otherwise
  * plant a discovery file pointing hook payloads at their own server. Windows %TEMP% is already per-user.
  */
 export function discoveryDir(): string {
   const uid = typeof process.getuid === 'function' ? process.getuid() : undefined;
-  return path.join(os.tmpdir(), uid === undefined ? 'flowlens' : `flowlens-${uid}`);
+  return path.join(os.tmpdir(), uid === undefined ? 'ripplemap' : `ripplemap-${uid}`);
 }
 
 /** `<discoveryDir>/<hash>.json`: where the hook forwarder finds this window's port + token. */

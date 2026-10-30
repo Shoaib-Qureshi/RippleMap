@@ -161,7 +161,7 @@ export function hookReply(
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       additionalContext: [
-        `FlowLens: the user left instructions for code in ${file}. Check that this edit follows them; if it doesn't, fix it:`,
+        `RippleMap: the user left instructions for code in ${file}. Check that this edit follows them; if it doesn't, fix it:`,
         ...lines,
       ].join('\n'),
     },

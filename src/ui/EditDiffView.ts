@@ -3,7 +3,7 @@ import type { EditTracker } from '../capture/EditTracker';
 import { basename } from '../util/paths';
 import { toUri } from '../util/workspace';
 
-const SCHEME = 'flowlens-edit';
+const SCHEME = 'ripplemap-edit';
 
 /** Read-only virtual documents holding an edit's before/after text, opened in VS Code's diff editor. */
 export function registerEditDiffView(tracker: EditTracker): vscode.Disposable {
@@ -16,14 +16,14 @@ export function registerEditDiffView(tracker: EditTracker): vscode.Disposable {
   };
   return vscode.Disposable.from(
     vscode.workspace.registerTextDocumentContentProvider(SCHEME, provider),
-    vscode.commands.registerCommand('flowlens.showEditDiff', async (id: string) => {
+    vscode.commands.registerCommand('ripplemap.showEditDiff', async (id: string) => {
       const e = tracker.get(id);
       if (!e) return;
       if (e.before === undefined) {
         const uri = toUri(e.file);
         if (uri && e.kind !== 'delete') await vscode.window.showTextDocument(uri);
         void vscode.window.showInformationMessage(
-          `FlowLens: no earlier copy of ${e.file} was known, so there is no diff for this edit.`,
+          `RippleMap: no earlier copy of ${e.file} was known, so there is no diff for this edit.`,
         );
         return;
       }

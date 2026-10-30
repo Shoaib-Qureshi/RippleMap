@@ -147,7 +147,7 @@ export function GraphCanvas() {
   if (!graph.nodes.length)
     return (
       <div className="fl-empty">
-        No graph yet. FlowLens indexes JS/TS, PHP and Python files in this workspace.
+        No graph yet. RippleMap indexes JS/TS, PHP and Python files in this workspace.
       </div>
     );
   if (!visible.nodes.length)

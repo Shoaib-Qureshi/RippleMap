@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { discoveryDir, discoveryPath } from './discovery';
 
 const MAX_BODY = 5 * 1024 * 1024;
-export const TOKEN_HEADER = 'x-flowlens-token';
+export const TOKEN_HEADER = 'x-ripplemap-token';
 
 /**
  * Localhost-only receiver for hook payloads. Random port, random per-session token, size cap.

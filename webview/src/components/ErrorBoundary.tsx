@@ -20,7 +20,7 @@ export class ErrorBoundary extends Component<
     if (!this.state.error) return this.props.children;
     return (
       <div className="fl-empty" role="alert">
-        <p>FlowLens hit an error rendering the graph: {this.state.error}</p>
+        <p>RippleMap hit an error rendering the graph: {this.state.error}</p>
         <button
           onClick={() => {
             this.props.onReset?.();

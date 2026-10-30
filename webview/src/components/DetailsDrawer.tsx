@@ -114,7 +114,7 @@ function NoteEditor({ node, saved }: { node: GraphNode; saved: string }) {
         {saved && <button onClick={() => save('')}>Remove</button>}
       </div>
       <p className="fl-muted">
-        Claude Code gets this whenever it edits {node.file} (needs the FlowLens hooks).
+        Claude Code gets this whenever it edits {node.file} (needs the RippleMap hooks).
       </p>
     </section>
   );

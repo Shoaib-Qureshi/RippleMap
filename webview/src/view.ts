@@ -219,7 +219,7 @@ export function describe(
   }
   const facts: string[] = [];
   if (typeof node.meta?.error === 'string')
-    facts.push(`FlowLens couldn't analyse this file (${node.meta.error})`);
+    facts.push(`RippleMap couldn't analyse this file (${node.meta.error})`);
   const next = /(?:^|\/)app\/(?:(.*)\/)?(page|layout|route)\.[jt]sx?$/.exec(node.file);
   const api = /(?:^|\/)pages\/(api\/.*?)(?:\/index)?\.[jt]s$/.exec(node.file);
   if (next)

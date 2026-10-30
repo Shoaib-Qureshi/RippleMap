@@ -164,19 +164,19 @@ export class BrowserBridge {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FlowLens</title>
+<title>RippleMap</title>
 <style>${THEME}</style>
 <link rel="stylesheet" href="/main.css">
 <script nonce="${nonce}">
 (() => {
-  window.__FLOWLENS_BROWSER__ = true;
+  window.__RIPPLEMAP_BROWSER__ = true;
   const send = (m) => fetch('/msg?t=${t}', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(m) }).catch(() => {});
   window.acquireVsCodeApi = () => ({ postMessage: send });
   const es = new EventSource('/events?t=${t}');
   es.onmessage = (e) => window.dispatchEvent(new MessageEvent('message', { data: JSON.parse(e.data) }));
   // (Re)connected: ask the host for init + the latest state.
-  es.onopen = () => { document.title = 'FlowLens'; send({ type: 'ready' }); };
-  es.onerror = () => { document.title = 'FlowLens (disconnected - reopen from VS Code)'; };
+  es.onopen = () => { document.title = 'RippleMap'; send({ type: 'ready' }); };
+  es.onerror = () => { document.title = 'RippleMap (disconnected - reopen from VS Code)'; };
 })();
 </script>
 </head>

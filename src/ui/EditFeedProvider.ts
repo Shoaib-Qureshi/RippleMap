@@ -81,7 +81,7 @@ export class EditFeedProvider implements vscode.TreeDataProvider<Item> {
             : 'diff-modified',
     );
     t.contextValue = 'edit';
-    t.command = { command: 'flowlens.showEditDiff', title: 'Show diff', arguments: [el.id] };
+    t.command = { command: 'ripplemap.showEditDiff', title: 'Show diff', arguments: [el.id] };
     return t;
   }
 }

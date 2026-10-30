@@ -54,7 +54,7 @@ describe('ClaudeCodeAdapter -> activity', () => {
     for (const p of payloads) await a.handle(p);
     return log.items;
   };
-  const call = { session_id: 's1', tool_name: 'mcp__github__search', tool_input: { q: 'flowlens' } };
+  const call = { session_id: 's1', tool_name: 'mcp__github__search', tool_input: { q: 'ripplemap' } };
 
   it('Pre then Post update one entry: running -> ok, with duration and result', async () => {
     const items = await run([
@@ -119,7 +119,7 @@ describe('Cursor (afterMCPExecution only)', async () => {
     cursor_version: '2.0.0',
     conversation_id: 'c1',
     tool_name: 'MCP:search_repositories',
-    tool_input: '{"query":"flowlens"}',
+    tool_input: '{"query":"ripplemap"}',
     mcp_server_name: 'github',
     duration: 420,
   };
@@ -132,7 +132,7 @@ describe('Cursor (afterMCPExecution only)', async () => {
       kind: 'mcp',
       target: 'github',
       action: 'search_repositories',
-      input: '{"query":"flowlens"}',
+      input: '{"query":"ripplemap"}',
       status: 'ok',
       durationMs: 420,
       sessionId: 'c1',
@@ -143,7 +143,7 @@ describe('Cursor (afterMCPExecution only)', async () => {
 
   it('never installs a blocking before* hook; keeps user entries; removes only ours', () => {
     expect(CURSOR_EVENTS.every((e) => e.startsWith('after'))).toBe(true);
-    const cmd = forwarderCommand('/x/flowlens-hook-forwarder.js');
+    const cmd = forwarderCommand('/x/ripplemap-hook-forwarder.js');
     const user = { command: './hooks/audit.sh' };
     const settings = { version: 1, hooks: { afterMCPExecution: [user], beforeShellExecution: [user] } };
     const once = mergeCursorHooks(settings, cmd);
