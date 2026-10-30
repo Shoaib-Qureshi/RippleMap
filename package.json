@@ -75,6 +75,16 @@
         "category": "FlowLens"
       },
       {
+        "command": "flowlens.installCursorHooks",
+        "title": "Install Cursor Hooks (MCP activity)",
+        "category": "FlowLens"
+      },
+      {
+        "command": "flowlens.removeCursorHooks",
+        "title": "Remove Cursor Hooks",
+        "category": "FlowLens"
+      },
+      {
         "command": "flowlens.setAiKey",
         "title": "Set AI API Key",
         "category": "FlowLens"

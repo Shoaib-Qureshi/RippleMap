@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as vscode from 'vscode';
 import { ActivityLog } from './capture/ActivityLog';
 import { ClaudeCodeAdapter, hookReply, OUTSIDE_MARKER, type AgentNote } from './capture/ClaudeCodeAdapter';
+import { CursorAdapter, isCursorPayload } from './capture/CursorAdapter';
 import type { RawEdit } from './capture/EditEvent';
 import { EditTracker } from './capture/EditTracker';
 import { HookServer } from './capture/HookServer';
@@ -74,12 +75,16 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       }
     },
   });
+  const cursor = new CursorAdapter();
   // User's instructions for the agent, per graph node; sent back through the PreToolUse hook.
   let notes: Record<string, StoredNote> = ctx.workspaceState.get(NOTES_KEY) ?? {};
   // Serialize hook handling so Pre/Post for the same tool call are processed in order.
   let hookQueue = Promise.resolve();
   const hookServer = new HookServer(
-    (p) => (hookQueue = hookQueue.then(() => claude.handle(p)).catch(() => undefined)),
+    (p) =>
+      isCursorPayload(p)
+        ? cursor.handle(p)
+        : (hookQueue = hookQueue.then(() => claude.handle(p)).catch(() => undefined)),
     (p) => {
       claude.snapshot(p);
       return hookReply(
@@ -286,6 +291,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     registerEditDiffView(tracker),
     new ManualEditAdapter().start(sink),
     claude.start(sink),
+    cursor.start(sink),
     hookServer,
     registerHookCommands(ctx),
     vscode.workspace.onDidOpenTextDocument(seed),

@@ -54,7 +54,9 @@ Or press **F5** in this folder to run it in an Extension Development Host.
 
 The hooks watch file edits, MCP tools (`mcp__.*`), `WebFetch`/`WebSearch`, and (after the fact only) `Bash`, of which only network commands are shown. The hook runs a tiny Node script that forwards the event to FlowLens on `127.0.0.1` with a per-session token; that adds roughly 50–100 ms to each of those calls. It prints nothing (except your 📝 notes for the file being edited), always exits 0, and gives up after 0.7 s, so it can't block or slow the agent. If VS Code isn't open, it just exits. **FlowLens: Remove Claude Code Hooks** removes only the FlowLens entries.
 
-Other agents (Copilot, Cursor, …) still show up through the file-change fallback, labelled *manual*.
+**Cursor:** run FlowLens inside Cursor and use **FlowLens: Install Cursor Hooks**. It adds an `afterMCPExecution` hook to `.cursor/hooks.json`, so Cursor's MCP calls appear in Agent Activity (finished calls only: Cursor's *before* hooks block the action unless they answer, so FlowLens never installs one). Cursor's edits still show up through the file-change fallback.
+
+Other agents (Copilot, …) show up through the file-change fallback, labelled *manual*. VS Code has no API to watch another extension's tool or MCP calls.
 
 ## Commands
 
@@ -64,6 +66,7 @@ Other agents (Copilot, Cursor, …) still show up through the file-change fallba
 | FlowLens: Open Graph in Browser | Live graph in your web browser (local only) |
 | FlowLens: Open Graph in New Window | Graph panel in a separate VS Code window |
 | FlowLens: Install / Remove Claude Code Hooks | See above |
+| FlowLens: Install / Remove Cursor Hooks | Cursor MCP calls in Agent Activity |
 | FlowLens: Re-index Workspace | Rebuild the graph from disk |
 | FlowLens: Set AI API Key | Key for **Explain with AI** (empty = remove) |
 | FlowLens: Clear Edit History | Empty the feed (and drop any pending preview) |

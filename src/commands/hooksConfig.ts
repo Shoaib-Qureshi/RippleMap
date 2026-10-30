@@ -1,4 +1,5 @@
 import { HOOK_EVENTS, HOOK_MATCHERS } from '../capture/ClaudeCodeAdapter';
+import { CURSOR_EVENTS } from '../capture/CursorAdapter';
 
 const MARKER = 'flowlens-hook-forwarder';
 
@@ -64,3 +65,29 @@ export function removeHooks(settings: Json): Json {
 }
 
 export const FORWARDER_FILE = `${MARKER}.js`;
+
+/**
+ * `.cursor/hooks.json` with FlowLens' Cursor hooks (re)installed: `{version: 1, hooks: {event: [{command}]}}`.
+ * Other entries are kept; only FlowLens commands are replaced. Only `after*` events (see CursorAdapter).
+ */
+export function mergeCursorHooks(settings: Json, command: string): Json {
+  const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
+  for (const event of CURSOR_EVENTS) {
+    const existing = hooks[event] ?? [];
+    if (!Array.isArray(existing)) continue; // the user's own format: leave it alone
+    hooks[event] = [...existing.filter((h) => !isOursHook(h)), { command }];
+  }
+  return { version: 1, ...settings, hooks };
+}
+
+/** Removes only FlowLens commands from `.cursor/hooks.json` (and event lists left empty). */
+export function removeCursorHooks(settings: Json): Json {
+  const hooks = { ...((settings.hooks as Json | undefined) ?? {}) };
+  for (const [event, list] of Object.entries(hooks)) {
+    if (!Array.isArray(list)) continue;
+    const kept = list.filter((h) => !isOursHook(h));
+    if (kept.length) hooks[event] = kept;
+    else delete hooks[event];
+  }
+  return { ...settings, hooks };
+}

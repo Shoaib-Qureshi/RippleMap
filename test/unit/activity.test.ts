@@ -109,3 +109,53 @@ describe('ActivityLog', () => {
     expect(log.items[0]!.input).toBe('204');
   });
 });
+
+describe('Cursor (afterMCPExecution only)', async () => {
+  const { cursorActivity, isCursorPayload, CURSOR_EVENTS } = await import('../../src/capture/CursorAdapter');
+  const { mergeCursorHooks, removeCursorHooks, forwarderCommand } =
+    await import('../../src/commands/hooksConfig');
+  const base = {
+    hook_event_name: 'afterMCPExecution',
+    cursor_version: '2.0.0',
+    conversation_id: 'c1',
+    tool_name: 'MCP:search_repositories',
+    tool_input: '{"query":"flowlens"}',
+    mcp_server_name: 'github',
+    duration: 420,
+  };
+
+  it('maps the payload (JSON-string input/result, MCP: prefix, isError)', () => {
+    expect(isCursorPayload(base)).toBe(true);
+    expect(isCursorPayload({ hook_event_name: 'PreToolUse' })).toBe(false);
+    expect(cursorActivity({ ...base, result_json: '{"content":[]}' })).toMatchObject({
+      source: 'cursor',
+      kind: 'mcp',
+      target: 'github',
+      action: 'search_repositories',
+      input: '{"query":"flowlens"}',
+      status: 'ok',
+      durationMs: 420,
+      sessionId: 'c1',
+    });
+    expect(cursorActivity({ ...base, result_json: '{"isError":true}' })?.status).toBe('error');
+    expect(cursorActivity({ ...base, hook_event_name: 'beforeMCPExecution' })).toBeUndefined();
+  });
+
+  it('never installs a blocking before* hook; keeps user entries; removes only ours', () => {
+    expect(CURSOR_EVENTS.every((e) => e.startsWith('after'))).toBe(true);
+    const cmd = forwarderCommand('/x/flowlens-hook-forwarder.js');
+    const user = { command: './hooks/audit.sh' };
+    const settings = { version: 1, hooks: { afterMCPExecution: [user], beforeShellExecution: [user] } };
+    const once = mergeCursorHooks(settings, cmd);
+    expect(mergeCursorHooks(once, cmd)).toEqual(once);
+    expect((once.hooks as Record<string, unknown[]>).afterMCPExecution).toEqual([user, { command: cmd }]);
+    expect(Object.keys(once.hooks as object).filter((k) => k.startsWith('before'))).toEqual([
+      'beforeShellExecution',
+    ]);
+    expect(removeCursorHooks(once)).toEqual(settings);
+    expect(mergeCursorHooks({}, cmd)).toEqual({
+      version: 1,
+      hooks: { afterMCPExecution: [{ command: cmd }] },
+    });
+  });
+});

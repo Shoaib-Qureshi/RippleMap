@@ -114,6 +114,30 @@ test('MCP calls and web fetches via the real forwarder show up as agent activity
   assert.equal(web.target, 'docs.example.com');
 });
 
+test("Cursor's afterMCPExecution via the real forwarder (no cwd: found through workspace_roots)", async () => {
+  const { activity } = await api();
+  const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
+  const r = forward({
+    hook_event_name: 'afterMCPExecution',
+    cursor_version: '2.0.0',
+    conversation_id: 'cursor-conv',
+    workspace_roots: [root],
+    tool_name: 'MCP:create_issue',
+    tool_input: '{"title":"x"}',
+    mcp_server_name: 'linear',
+    result_json: '{"content":[]}',
+    duration: 210,
+  });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, ''); // after* hooks: nothing printed
+  const a = await waitFor(
+    () => activity.items.find((x) => x.source === 'cursor' && x.target === 'linear'),
+    'cursor',
+  );
+  assert.equal(a.action, 'create_issue');
+  assert.equal(a.durationMs, 210);
+});
+
 test('Claude Code hook payloads via the real forwarder produce proposed then applied (M2)', async () => {
   const { tracker } = await api();
   const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;

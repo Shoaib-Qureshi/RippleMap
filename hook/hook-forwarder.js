@@ -55,7 +55,9 @@ function main() {
     try {
       const body = Buffer.concat(chunks);
       const payload = JSON.parse(body.toString('utf8'));
-      const server = findServer(process.env.CLAUDE_PROJECT_DIR || payload.cwd || process.cwd());
+      const roots = Array.isArray(payload.workspace_roots) ? payload.workspace_roots : []; // Cursor
+      const start = process.env.CLAUDE_PROJECT_DIR || payload.cwd || roots[0];
+      const server = findServer(typeof start === 'string' && start ? start : process.cwd());
       if (!server || !server.port || !server.token) process.exit(0);
       const req = http.request(
         {
