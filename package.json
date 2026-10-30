@@ -2,10 +2,13 @@
   "name": "flowlens",
   "displayName": "FlowLens",
   "description": "See what your AI agent changed and how your app's workflow graph changes, in real time.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "tier2",
+  "author": {
+    "name": "Shoaib Qureshi"
+  },
   "private": true,
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE.md",
   "icon": "media/icon.png",
   "galleryBanner": {
     "color": "#14213d",
@@ -14,17 +17,20 @@
   "keywords": [
     "ai",
     "claude code",
+    "cursor",
+    "mcp",
+    "ai agent",
     "call graph",
     "dependency graph",
+    "code review",
     "diff",
-    "wordpress",
-    "visualization",
-    "vibe coding"
+    "visualization"
   ],
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
+    "AI",
     "Visualization",
     "Other"
   ],
@@ -238,7 +244,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:integration": "npm run build && node test/integration/runTests.mjs",
-    "package": "npm run build && vsce package --no-dependencies --skip-license --allow-missing-repository --no-rewrite-relative-links -o flowlens.vsix",
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository --no-rewrite-relative-links -o flowlens.vsix",
     "test:vsix": "npm run package && node test/integration/runTests.mjs --vsix flowlens.vsix"
   },
   "devDependencies": {
@@ -251,7 +257,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "@vscode/test-electron": "^3.1.0",
     "@vscode/tree-sitter-wasm": "^0.3.1",
-    "@vscode/vsce": "^4.0.0",
+    "@vscode/vsce": "^4.1.0",
     "@xyflow/react": "^12.12.0",
     "diff": "^9.0.0",
     "esbuild": "^0.28.2",
@@ -266,5 +272,7 @@
     "vite": "^8.3.5",
     "vitest": "^5.0.5",
     "zustand": "^5.0.15"
-  }
+  },
+  "preview": true,
+  "pricing": "Free"
 }
