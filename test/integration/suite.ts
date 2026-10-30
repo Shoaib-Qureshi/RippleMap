@@ -21,7 +21,7 @@ test('openPanel completes the ready -> init round trip', async () => {
 });
 
 const api = async (): Promise<RippleMapApi> => {
-  const ext = vscode.extensions.getExtension<RippleMapApi>('tier2.ripplemap')!;
+  const ext = vscode.extensions.getExtension<RippleMapApi>('ShoaibQureshi.ripplemap')!;
   return ext.isActive ? ext.exports : ext.activate();
 };
 
@@ -61,7 +61,7 @@ test('saving an edit creates a feed entry with +/- lines and ranges (M1)', async
 
 const forward = (payload: object) => {
   const forwarder = path.join(
-    vscode.extensions.getExtension('tier2.ripplemap')!.extensionPath,
+    vscode.extensions.getExtension('ShoaibQureshi.ripplemap')!.extensionPath,
     'hook',
     'hook-forwarder.js',
   );
@@ -197,7 +197,7 @@ test('forwarder exits 0 silently when no RippleMap window is listening', async (
     'node',
     [
       path.join(
-        vscode.extensions.getExtension('tier2.ripplemap')!.extensionPath,
+        vscode.extensions.getExtension('ShoaibQureshi.ripplemap')!.extensionPath,
         'hook',
         'hook-forwarder.js',
       ),

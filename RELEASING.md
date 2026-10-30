@@ -19,8 +19,8 @@ VS Code Marketplace and Open VSX and creates a GitHub release with the `.vsix`
    extension once in a real Claude Code session (and Cursor) before tagging.
 
 4. **VS Code Marketplace publisher.** At <https://marketplace.visualstudio.com/manage>, sign in with your
-   Microsoft account and create a publisher. Its ID is permanent and must equal `publisher` in
-   `package.json` (currently `tier2`). Then set up **Trusted Publishing** for this GitHub repo and the
+   Microsoft account and create a publisher. Done: ID `ShoaibQureshi` (name "Shoaib Qureshi"), set as
+   `publisher` in `package.json`, so the extension id is `ShoaibQureshi.ripplemap`. Then set up **Trusted Publishing** for this GitHub repo and the
    `Release` workflow in the publisher's settings, following
    <https://code.visualstudio.com/api/working-with-extensions/publishing-extension>. No token is stored:
    the workflow runs `vsce publish --oidc` (needs `@vscode/vsce` 4.1.0+, already in `devDependencies`).
