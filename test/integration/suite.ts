@@ -1,6 +1,6 @@
 // Runs inside the Extension Development Host. Deliberately tiny: no mocha, just ordered async tests.
 import * as assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
@@ -68,9 +68,19 @@ const forward = (payload: object) => {
   const env = { ...process.env };
   delete env.CLAUDE_PROJECT_DIR;
   delete env.ELECTRON_RUN_AS_NODE;
+  // Asynchronous, like Claude Code / Cursor running the hook: spawnSync would freeze this extension host,
+  // and with it the HookServer the forwarder is trying to reach. (On Windows the connection is then dropped
+  // when the forwarder gives up; on macOS/Linux the kernel buffer hid the problem.)
   const t0 = Date.now();
-  const r = spawnSync('node', [forwarder], { input: JSON.stringify(payload), env, encoding: 'utf8' });
-  return { ...r, ms: Date.now() - t0 };
+  return new Promise<{ status: number | null; stdout: string; stderr: string; ms: number }>((resolve) => {
+    const child = spawn('node', [forwarder], { env });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+    child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+    child.on('close', (status) => resolve({ status, stdout, stderr, ms: Date.now() - t0 }));
+    child.stdin.end(JSON.stringify(payload));
+  });
 };
 
 test('MCP calls and web fetches via the real forwarder show up as agent activity', async () => {
@@ -84,14 +94,19 @@ test('MCP calls and web fetches via the real forwarder show up as agent activity
     tool_input: { query: 'ripplemap' },
     mcp_server: { name: 'github', source: 'user' },
   };
-  const pre = forward({ ...mcp, hook_event_name: 'PreToolUse' });
+  const pre = await forward({ ...mcp, hook_event_name: 'PreToolUse' });
   assert.equal(pre.status, 0);
   assert.equal(pre.stdout, ''); // nothing printed back to the agent for MCP calls
   await waitFor(
     () => activity.items.find((a) => a.toolUseId === 'toolu_mcp' && a.status === 'running'),
     'running',
   );
-  forward({ ...mcp, hook_event_name: 'PostToolUse', tool_response: { total_count: 3 }, duration_ms: 640 });
+  await forward({
+    ...mcp,
+    hook_event_name: 'PostToolUse',
+    tool_response: { total_count: 3 },
+    duration_ms: 640,
+  });
   const done = await waitFor(
     () => activity.items.find((a) => a.toolUseId === 'toolu_mcp' && a.status === 'ok'),
     'ok',
@@ -100,7 +115,7 @@ test('MCP calls and web fetches via the real forwarder show up as agent activity
   assert.equal(done.action, 'search_repositories');
   assert.equal(done.durationMs, 640);
 
-  forward({
+  await forward({
     session_id: 'sess-mcp',
     cwd: root,
     hook_event_name: 'PostToolUse',
@@ -117,7 +132,7 @@ test('MCP calls and web fetches via the real forwarder show up as agent activity
 test("Cursor's afterMCPExecution via the real forwarder (no cwd: found through workspace_roots)", async () => {
   const { activity } = await api();
   const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
-  const r = forward({
+  const r = await forward({
     hook_event_name: 'afterMCPExecution',
     cursor_version: '2.0.0',
     conversation_id: 'cursor-conv',
@@ -152,7 +167,7 @@ test('Claude Code hook payloads via the real forwarder produce proposed then app
     tool_input: { file_path: file, old_string: 'a = 1', new_string: 'a = 2' },
   };
   try {
-    const pre = forward({ ...base, hook_event_name: 'PreToolUse' });
+    const pre = await forward({ ...base, hook_event_name: 'PreToolUse' });
     assert.equal(pre.status, 0);
     assert.equal(pre.stdout, '');
     assert.equal(pre.stderr, '');
@@ -165,7 +180,7 @@ test('Claude Code hook payloads via the real forwarder produce proposed then app
     assert.equal(fs.readFileSync(file, 'utf8'), 'export const a = 1;\n'); // nothing touched disk
 
     fs.writeFileSync(file, 'export const a = 2;\n');
-    assert.equal(forward({ ...base, hook_event_name: 'PostToolUse', tool_response: {} }).status, 0);
+    assert.equal((await forward({ ...base, hook_event_name: 'PostToolUse', tool_response: {} })).status, 0);
     const applied = await waitFor(
       () => tracker.edits.find((e) => e.toolUseId === 'toolu_1' && e.status === 'applied'),
       'applied',
@@ -190,7 +205,7 @@ test('Claude Code hook payloads via the real forwarder produce proposed then app
 });
 
 test('forwarder exits 0 silently when no RippleMap window is listening', async () => {
-  const r = forward({ hook_event_name: 'PreToolUse', cwd: path.parse(process.cwd()).root });
+  const r = await forward({ hook_event_name: 'PreToolUse', cwd: path.parse(process.cwd()).root });
   assert.equal(r.status, 0);
   assert.equal(r.stdout + r.stderr, '');
   const bad = spawnSync(
@@ -321,21 +336,21 @@ test('pending preview appears before disk changes, is discarded on failure, and 
   };
   try {
     // 1) Proposed, then the tool fails: preview shown, then discarded, disk untouched.
-    forward({ ...base, tool_use_id: 'tp1', hook_event_name: 'PreToolUse' });
+    await forward({ ...base, tool_use_id: 'tp1', hook_event_name: 'PreToolUse' });
     const v = await waitFor(() => (graph.view().pending ? graph.view() : undefined), 'pending preview');
     assert.ok(v.diff.addedNodes.includes('sample.ts::function::brandNew'));
     assert.ok(v.diff.addedEdges.includes('sample.ts::function::brandNew->sample.ts::function::hello::calls'));
     assert.equal(fs.readFileSync(file, 'utf8'), original);
-    forward({ ...base, tool_use_id: 'tp1', hook_event_name: 'PostToolUseFailure', error: 'denied' });
+    await forward({ ...base, tool_use_id: 'tp1', hook_event_name: 'PostToolUseFailure', error: 'denied' });
     await waitFor(() => (graph.view().pending === null ? true : undefined), 'preview discarded');
     assert.ok(!graph.graph.nodes.has('sample.ts::function::brandNew'));
     assert.ok(!tracker.edits.some((e) => e.toolUseId === 'tp1'));
 
     // 2) Proposed, applied: preview replaced by a real snapshot with the same change.
-    forward({ ...base, tool_use_id: 'tp2', hook_event_name: 'PreToolUse' });
+    await forward({ ...base, tool_use_id: 'tp2', hook_event_name: 'PreToolUse' });
     await waitFor(() => graph.view().pending ?? undefined, 'pending preview 2');
     fs.writeFileSync(file, original.replace(base.tool_input.old_string, base.tool_input.new_string));
-    forward({ ...base, tool_use_id: 'tp2', hook_event_name: 'PostToolUse', tool_response: {} });
+    await forward({ ...base, tool_use_id: 'tp2', hook_event_name: 'PostToolUse', tool_response: {} });
     await waitFor(
       () =>
         graph.view().pending === null && graph.graph.nodes.has('sample.ts::function::brandNew')
