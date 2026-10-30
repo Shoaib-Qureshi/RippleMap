@@ -13,9 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # GitHub release with the .vsix
-      id-token: write # VS Code Marketplace Trusted Publishing (OIDC): no stored token
-    env:
-      OVSX_PAT: ${{ secrets.OVSX_PAT }} # optional: without it, Open VSX is skipped
+      id-token: write # Trusted Publishing (OIDC) to the Marketplace and Open VSX: no stored tokens
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,8 +35,7 @@ jobs:
         run: npx vsce publish --oidc --packagePath ripplemap.vsix
 
       - name: Publish to Open VSX (Cursor, Windsurf, VSCodium)
-        if: env.OVSX_PAT != ''
-        run: npx --yes ovsx@1.3.0 publish ripplemap.vsix -p "$OVSX_PAT"
+        run: npx --yes ovsx@1.3.0 publish ripplemap.vsix --trusted-publishing
 
       - name: GitHub release with the .vsix
         env:

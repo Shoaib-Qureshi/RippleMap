@@ -26,10 +26,12 @@ VS Code Marketplace and Open VSX and creates a GitHub release with the `.vsix`
    the workflow runs `vsce publish --oidc` (needs `@vscode/vsce` 4.1.0+, already in `devDependencies`).
    Personal Access Tokens stop working on 1 December 2026, so don't set one up.
 
-5. **Open VSX** (Cursor, Windsurf, VSCodium). Create an account at <https://open-vsx.org>, sign the
-   publisher agreement, create an access token, and create the namespace once:
-   `npx ovsx create-namespace <publisher> -p <token>`. Add the token to the GitHub repo as the secret
-   `OVSX_PAT`. Without it, the workflow skips Open VSX.
+5. **Open VSX** (Cursor, Windsurf, VSCodium). Log in at <https://open-vsx.org> with GitHub, sign the
+   Eclipse publisher agreement (Profile), and create the namespace `ShoaibQureshi` (exactly the `publisher`
+   in `package.json`). Then under **Trusted Publishers** register repository `Shoaib-Qureshi/RippleMap`,
+   workflow `release.yml`, no environment. The workflow runs `ovsx publish --trusted-publishing` (ovsx 1.3.0+):
+   no token is stored. The very first version can be published by hand with a short-lived access token:
+   `npx ovsx publish ripplemap-0.1.0.vsix -p <token>`.
 
 6. **License.** `LICENSE.md` is a plain-language template (free to use, proprietary). Have it reviewed
    before charging for anything.
