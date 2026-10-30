@@ -1,5 +1,12 @@
 // Pure view-model logic: which nodes/edges are visible. No React; unit-tested from test/unit.
-import type { EdgeKind, GraphPayload, NodeKind, PayloadEdge, PayloadNode } from '../../src/shared/messages';
+import type {
+  ActivityChip,
+  EdgeKind,
+  GraphPayload,
+  NodeKind,
+  PayloadEdge,
+  PayloadNode,
+} from '../../src/shared/messages';
 
 export type Level = 'files' | 'functions';
 export type Mode = 'current' | 'after' | 'diff';
@@ -321,4 +328,36 @@ export function overview(g: GraphPayload): Overview {
     core,
     unused,
   };
+}
+
+export interface Reached {
+  kind: ActivityChip['kind'];
+  target: string;
+  calls: number;
+  /** Failed, denied or stopped calls. */
+  problems: number;
+  running: number;
+}
+
+/**
+ * What the agent reached outside the code while making the step on screen: calls between the previous
+ * snapshot and this one (on the latest step, also everything since). Grouped per server / host, busiest first.
+ */
+export function reachedDuring(items: readonly ActivityChip[], g: GraphPayload): Reached[] {
+  const step = g.step;
+  if (!step) return [];
+  const latest = !!g.pending || step.index === g.steps.length - 1;
+  const from = g.steps[step.index - 1]?.ts ?? -Infinity;
+  const to = latest ? Infinity : step.ts;
+  const out = new Map<string, Reached>();
+  for (const a of items) {
+    if (a.ts <= from || a.ts > to) continue;
+    const key = `${a.kind}:${a.target}`;
+    const r = out.get(key) ?? { kind: a.kind, target: a.target, calls: 0, problems: 0, running: 0 };
+    r.calls++;
+    if (a.status === 'running') r.running++;
+    else if (a.status !== 'ok') r.problems++;
+    out.set(key, r);
+  }
+  return [...out.values()].sort((a, b) => b.running - a.running || b.calls - a.calls);
 }

@@ -48,6 +48,14 @@ export interface Summary {
   loading?: boolean;
 }
 
+/** A call the agent made outside the code, as the graph shows it (see src/capture/ActivityLog.ts). */
+export interface ActivityChip {
+  ts: number;
+  kind: 'mcp' | 'web' | 'net';
+  target: string;
+  status: 'running' | 'ok' | 'error' | 'denied' | 'interrupted';
+}
+
 /** Max length of one instruction note for the AI agent. */
 export const MAX_NOTE = 2000;
 
@@ -57,7 +65,9 @@ export type HostToWebview =
   | { type: 'index:progress'; done: number; total: number }
   /** User's instructions for the AI agent, by node id. */
   | { type: 'notes'; notes: Record<string, string> }
-  | { type: 'summaries'; summaries: Record<string, Summary> };
+  | { type: 'summaries'; summaries: Record<string, Summary> }
+  /** Agent calls outside the code (MCP / web / network), newest first. */
+  | { type: 'activity'; items: ActivityChip[] };
 
 export type WebviewToHost =
   | { type: 'ready' }
@@ -72,7 +82,9 @@ export type WebviewToHost =
   /** Set (empty text = remove) the instruction the agent gets when it edits this node's file. */
   | { type: 'note:set'; nodeId: string; text: string }
   /** Opt-in: send this node's code to the configured AI provider for a short explanation. */
-  | { type: 'ai:summarize'; nodeId: string };
+  | { type: 'ai:summarize'; nodeId: string }
+  /** Reveal the Agent Activity view. */
+  | { type: 'showActivity' };
 
 const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'ready',
@@ -83,6 +95,7 @@ const webviewTypes: ReadonlySet<string> = new Set<WebviewToHost['type']>([
   'popout',
   'note:set',
   'ai:summarize',
+  'showActivity',
 ]);
 
 /** Validates messages arriving from the webview before the host acts on them. */

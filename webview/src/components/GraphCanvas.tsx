@@ -5,6 +5,7 @@ import { layoutGraph, NODE_H, NODE_W } from '../layout';
 import { activities, sharedNodes, simpleEdges, visibleGraph } from '../view';
 import { vscode } from '../vscode';
 import { ExportPanel } from './ExportPanel';
+import { Reached } from './Reached';
 import { ClusterNode, FlowNode, type ClusterData, type FlowNodeData } from './FlowNode';
 
 const nodeTypes = { flow: FlowNode, cluster: ClusterNode };
@@ -196,6 +197,7 @@ export function GraphCanvas() {
       >
         <Background gap={24} size={1} />
         <Controls showInteractive={false} />
+        <Reached />
         <ExportPanel
           nodes={visible.nodes}
           edges={baseEdges}

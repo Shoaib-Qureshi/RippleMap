@@ -99,6 +99,10 @@
         {
           "id": "flowlens.editFeed",
           "name": "Edit Feed"
+        },
+        {
+          "id": "flowlens.activity",
+          "name": "Agent Activity"
         }
       ]
     },
@@ -106,6 +110,10 @@
       {
         "view": "flowlens.editFeed",
         "contents": "No edits yet. Save a file or let your AI agent edit one.\n[Install Claude Code Hooks](command:flowlens.installHooks)\n[Open Graph Panel](command:flowlens.openPanel)"
+      },
+      {
+        "view": "flowlens.activity",
+        "contents": "Nothing yet. When Claude Code calls an MCP server, fetches or searches the web, or runs a network command (curl, git push, npm install\u2026), it shows up here.\n[Install Claude Code Hooks](command:flowlens.installHooks)"
       }
     ],
     "menus": {
@@ -128,6 +136,11 @@
         {
           "command": "flowlens.clearHistory",
           "when": "view == flowlens.editFeed",
+          "group": "navigation"
+        },
+        {
+          "command": "flowlens.clearHistory",
+          "when": "view == flowlens.activity",
           "group": "navigation"
         }
       ],

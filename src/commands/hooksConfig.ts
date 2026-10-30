@@ -1,4 +1,4 @@
-import { HOOK_EVENTS, HOOK_MATCHER } from '../capture/ClaudeCodeAdapter';
+import { HOOK_EVENTS, HOOK_MATCHERS } from '../capture/ClaudeCodeAdapter';
 
 const MARKER = 'flowlens-hook-forwarder';
 
@@ -43,7 +43,8 @@ export function mergeHooks(settings: Json, command: string): Json {
     const group: HookGroup = {
       hooks: [{ type: 'command', command, timeout: 5 } as { type: string; command: string }],
     };
-    if (event !== 'Stop') group.matcher = HOOK_MATCHER;
+    const matcher = HOOK_MATCHERS[event];
+    if (matcher) group.matcher = matcher;
     hooks[event] = [...groups, group];
   }
   return { ...settings, hooks };

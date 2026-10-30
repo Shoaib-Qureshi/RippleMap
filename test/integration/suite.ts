@@ -73,6 +73,47 @@ const forward = (payload: object) => {
   return { ...r, ms: Date.now() - t0 };
 };
 
+test('MCP calls and web fetches via the real forwarder show up as agent activity', async () => {
+  const { activity } = await api();
+  const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;
+  const mcp = {
+    session_id: 'sess-mcp',
+    cwd: root,
+    tool_name: 'mcp__github__search_repositories',
+    tool_use_id: 'toolu_mcp',
+    tool_input: { query: 'flowlens' },
+    mcp_server: { name: 'github', source: 'user' },
+  };
+  const pre = forward({ ...mcp, hook_event_name: 'PreToolUse' });
+  assert.equal(pre.status, 0);
+  assert.equal(pre.stdout, ''); // nothing printed back to the agent for MCP calls
+  await waitFor(
+    () => activity.items.find((a) => a.toolUseId === 'toolu_mcp' && a.status === 'running'),
+    'running',
+  );
+  forward({ ...mcp, hook_event_name: 'PostToolUse', tool_response: { total_count: 3 }, duration_ms: 640 });
+  const done = await waitFor(
+    () => activity.items.find((a) => a.toolUseId === 'toolu_mcp' && a.status === 'ok'),
+    'ok',
+  );
+  assert.equal(done.target, 'github');
+  assert.equal(done.action, 'search_repositories');
+  assert.equal(done.durationMs, 640);
+
+  forward({
+    session_id: 'sess-mcp',
+    cwd: root,
+    hook_event_name: 'PostToolUse',
+    tool_name: 'WebFetch',
+    tool_use_id: 'toolu_web',
+    tool_input: { url: 'https://docs.example.com/guide', prompt: 'summarize' },
+    tool_response: 'ok',
+  });
+  const web = await waitFor(() => activity.items.find((a) => a.toolUseId === 'toolu_web'), 'web');
+  assert.equal(web.kind, 'web');
+  assert.equal(web.target, 'docs.example.com');
+});
+
 test('Claude Code hook payloads via the real forwarder produce proposed then applied (M2)', async () => {
   const { tracker } = await api();
   const root = vscode.workspace.workspaceFolders![0]!.uri.fsPath;

@@ -4,6 +4,7 @@ import {
   activities,
   describe as about,
   overview,
+  reachedDuring,
   sharedNodes,
   simpleEdges,
   visibleGraph,
@@ -204,5 +205,27 @@ describe('visibleGraph', () => {
         graph,
       ).impact,
     ).toBeUndefined();
+  });
+
+  it('reachedDuring: calls between the previous snapshot and this one (latest: and since)', () => {
+    const step = (index: number, ts: number) => ({ index, id: `s${index}`, ts, label: '', edits: 1 });
+    const steps = [step(0, 100), step(1, 200), step(2, 300)];
+    const chip = (ts: number, target: string, status: 'ok' | 'error' | 'running' = 'ok') => ({
+      ts,
+      kind: 'mcp' as const,
+      target,
+      status,
+    });
+    const items = [
+      chip(150, 'slack'),
+      chip(160, 'slack', 'error'),
+      chip(250, 'github'),
+      chip(350, 'db', 'running'),
+    ];
+    const at = (i: number) => reachedDuring(items, { ...g, steps, step: steps[i]! });
+    expect(at(1)).toEqual([{ kind: 'mcp', target: 'slack', calls: 2, problems: 1, running: 0 }]);
+    // latest step: its own window plus everything after it, running calls first
+    expect(at(2).map((r) => r.target)).toEqual(['db', 'github']);
+    expect(reachedDuring(items, { ...g, step: null })).toEqual([]);
   });
 });

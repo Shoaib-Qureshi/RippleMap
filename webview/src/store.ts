@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GraphPayload, HostToWebview, NodeKind, Summary } from '../../src/shared/messages';
+import type { ActivityChip, GraphPayload, HostToWebview, NodeKind, Summary } from '../../src/shared/messages';
 import type { LayoutMode } from './layout';
 import type { Level, Mode } from './view';
 
@@ -32,6 +32,8 @@ export interface State {
   notes: Record<string, string>;
   /** AI explanations, by node id. */
   summaries: Record<string, Summary>;
+  /** Agent calls outside the code (MCP / web / network), newest first. */
+  activity: ActivityChip[];
   showFlow(id: string | null): void;
   set(patch: Partial<State>): void;
   toggleKind(k: NodeKind): void;
@@ -53,6 +55,7 @@ export const useStore = create<State>((set, get) => ({
   },
   notes: {},
   summaries: {},
+  activity: [],
   progress: null,
   level: 'files',
   mode: 'diff',
@@ -91,6 +94,9 @@ export const useStore = create<State>((set, get) => ({
         });
         break;
       }
+      case 'activity':
+        set({ activity: msg.items });
+        break;
       case 'summaries':
         set({ summaries: msg.summaries });
         break;

@@ -23,6 +23,7 @@ Everything runs locally. No telemetry and no network calls, with one opt-in exce
 | **☰ Start here** | Opens beside the graph when nothing is selected: **entry points** (Next.js pages and API routes, Express/Flask routes, WordPress hooks by number of handlers) — click one to follow its flow; **core files** that many others import (change with care; generated code excluded); and files **not imported by other code** (loaded another way, or dead). |
 | **What the agent did** | Every changed block shows a one-line summary, e.g. *Claude Code: added save, changed load* (*(proposed)* while the edit is pending). |
 | **Instructions for the AI** | Click a block → **📝 Instructions for the AI**, e.g. *"If you change this, also update the cache. Don't add dependencies."* When Claude Code edits that file, the hook hands your notes to Claude so it checks its edit against them. Blocks with notes show 📝. |
+| **Agent Activity** (sidebar + graph) | Every MCP tool call (🔌 `github › search_repositories`), web fetch/search (🌐) and network command (`curl`, `git push`, `npm install`…) Claude Code makes: running / ✓ / ✗ / denied, duration, shortened input and result. The graph shows the servers and sites reached during the step on screen; click one to open the list. In memory only, never sent anywhere. |
 | **Pending preview** | Claude Code's proposed `Edit`/`Write` is applied in memory; the diff appears while the agent waits, and is dropped if the edit is rejected or fails. |
 | **Framework flows** | WordPress `add_action`/`add_filter`/`do_action`, shortcodes, REST routes (WooCommerce hooks flagged); Express and Next.js route handlers; Flask/FastAPI routes. |
 | **Insights** | New circular imports, new call cycles, functions that lost all callers, calls to functions that were removed. |
@@ -51,7 +52,7 @@ Or press **F5** in this folder to run it in an Extension Development Host.
 2. Run **FlowLens: Install Claude Code Hooks**. This adds `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionDenied` and `Stop` hooks to `.claude/settings.local.json` in each workspace folder. Your existing hooks are kept, and the file is backed up first.
 3. Start a **new** Claude Code session in that folder. AI edits now show as *Claude Code* in the feed, with a pending preview before each edit lands.
 
-The hook runs a tiny Node script that forwards the event to FlowLens on `127.0.0.1` with a per-session token. It prints nothing (except your 📝 notes for the file being edited), always exits 0, and gives up after 0.7 s, so it can't block or slow the agent. If VS Code isn't open, it just exits. **FlowLens: Remove Claude Code Hooks** removes only the FlowLens entries.
+The hooks watch file edits, MCP tools (`mcp__.*`), `WebFetch`/`WebSearch`, and (after the fact only) `Bash`, of which only network commands are shown. The hook runs a tiny Node script that forwards the event to FlowLens on `127.0.0.1` with a per-session token; that adds roughly 50–100 ms to each of those calls. It prints nothing (except your 📝 notes for the file being edited), always exits 0, and gives up after 0.7 s, so it can't block or slow the agent. If VS Code isn't open, it just exits. **FlowLens: Remove Claude Code Hooks** removes only the FlowLens entries.
 
 Other agents (Copilot, Cursor, …) still show up through the file-change fallback, labelled *manual*.
 

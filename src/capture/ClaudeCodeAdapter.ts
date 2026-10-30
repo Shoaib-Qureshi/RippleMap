@@ -5,6 +5,10 @@
 // - PostToolUseFailure / PermissionDenied: the proposed edit never landed. Stop: end of a response.
 // - PreToolUse may print {hookSpecificOutput: {hookEventName, additionalContext}} on stdout (exit 0);
 //   Claude reads it as a system reminder next to the tool result. We use it for the user's notes.
+// - MCP tools are named `mcp__<server>__<tool>` (plugins: `mcp__plugin_<plugin>_<server>__<tool>`) and their
+//   payloads carry `mcp_server: {name, source}`. PostToolUse/PostToolUseFailure carry `duration_ms`;
+//   PostToolUseFailure carries `error` and `is_interrupt`. WebFetch input: {url, prompt}; WebSearch: {query}.
+import { clip, type ActivityInput, type ActivityStatus } from './ActivityLog';
 import type { AgentAdapter, EditSink } from './AgentAdapter';
 import type { RawEdit } from './EditEvent';
 import {
@@ -15,7 +19,6 @@ import {
 } from '../preview/applyToolEdit';
 
 export const EDIT_TOOLS = ['Edit', 'Write', 'MultiEdit'] as const;
-export const HOOK_MATCHER = 'Edit|Write|MultiEdit';
 export const HOOK_EVENTS = [
   'PreToolUse',
   'PostToolUse',
@@ -23,6 +26,73 @@ export const HOOK_EVENTS = [
   'PermissionDenied',
   'Stop',
 ] as const;
+
+const EDITS = 'Edit|Write|MultiEdit';
+/** Calls outside the code: MCP tools and the web. `Bash` only after the fact (filtered to network commands),
+ *  so ordinary shell commands don't pay for a hook before they run. */
+const OUTSIDE = 'WebFetch|WebSearch|mcp__.*';
+export const HOOK_MATCHERS: Record<(typeof HOOK_EVENTS)[number], string | undefined> = {
+  PreToolUse: `${EDITS}|${OUTSIDE}`,
+  PostToolUse: `${EDITS}|${OUTSIDE}|Bash`,
+  PostToolUseFailure: `${EDITS}|${OUTSIDE}|Bash`,
+  PermissionDenied: `${EDITS}|${OUTSIDE}`,
+  Stop: undefined,
+};
+/** Present in installed settings once the MCP/web matchers are in (older installs lack it). */
+export const OUTSIDE_MARKER = 'mcp__.*';
+
+/** Shell commands that reach the network. ponytail: name-based; a command hiding its network use isn't seen. */
+const NET_COMMAND =
+  /(?:^|[\s;&|(`])(curl|wget|xh|https?|Invoke-WebRequest|Invoke-RestMethod|iwr|irm|ssh|scp|rsync|ftp|git\s+(?:clone|fetch|pull|push|ls-remote)|npm\s+(?:i|install|add|ci|publish)|pnpm\s+(?:i|install|add)|yarn\s+(?:add|install)|bun\s+(?:add|install)|pip3?\s+install|uv\s+(?:add|pip\s+install)|composer\s+(?:require|install|update)|docker\s+(?:pull|push)|gh\s+[a-z]+)\b/;
+const host = (url: string) => {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+};
+
+/** An MCP / web / network-shell call as an activity (kind, where it went, what was called), else undefined. */
+export function classifyActivity(
+  tool: string,
+  input: Obj,
+  p: Obj,
+): Pick<ActivityInput, 'kind' | 'target' | 'action' | 'input'> | undefined {
+  const mcp = /^mcp__(.+?)__(.+)$/.exec(tool);
+  if (mcp)
+    return {
+      kind: 'mcp',
+      target: str(obj(p.mcp_server)?.name) ?? mcp[1]!,
+      action: mcp[2]!,
+      input: clip(JSON.stringify(input)),
+    };
+  if (tool === 'WebFetch') {
+    const url = str(input.url) ?? '';
+    return { kind: 'web', target: host(url), action: 'fetch', input: clip(url) };
+  }
+  if (tool === 'WebSearch')
+    return { kind: 'web', target: 'web search', action: 'search', input: clip(str(input.query) ?? '') };
+  if (tool === 'Bash') {
+    const cmd = str(input.command) ?? '';
+    const net = NET_COMMAND.exec(cmd);
+    if (!net) return undefined;
+    const url = /https?:\/\/[^\s'"`)]+/.exec(cmd)?.[0];
+    return {
+      kind: 'net',
+      target: url ? host(url) : net[1]!.split(/\s+/)[0]!,
+      action: clip(cmd, 120),
+      input: clip(cmd),
+    };
+  }
+  return undefined;
+}
+
+const STATUS: Record<string, ActivityStatus | undefined> = {
+  PreToolUse: 'running',
+  PostToolUse: 'ok',
+  PostToolUseFailure: 'error',
+  PermissionDenied: 'denied',
+};
 
 type Obj = Record<string, unknown>;
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
@@ -128,13 +198,32 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     if (!sink) return;
     const event = str(p.hook_event_name);
     const toolUseId = str(p.tool_use_id);
+    const tool = str(p.tool_name) ?? '';
+    const input = obj(p.tool_input);
+    const status = event && STATUS[event];
+    const outside = input && status && classifyActivity(tool, input, p);
+    if (outside) {
+      const failed = event === 'PostToolUseFailure';
+      const response = p.tool_response;
+      sink.activity?.({
+        ...outside,
+        source: 'claude-code',
+        sessionId: str(p.session_id),
+        toolUseId,
+        status: failed && p.is_interrupt === true ? 'interrupted' : status,
+        durationMs: typeof p.duration_ms === 'number' ? p.duration_ms : undefined,
+        output: failed
+          ? clip(str(p.error) ?? '')
+          : response === undefined
+            ? undefined
+            : clip(typeof response === 'string' ? response : JSON.stringify(response)),
+      });
+      return;
+    }
     // Stop ends one session's response: only its proposals (another session may be mid-permission-prompt).
     // Known gap: rejecting with Esc is an interrupt and sends no Stop; the proposal clears on the next one.
     if (event === 'Stop') return void sink.discard(undefined, str(p.session_id));
     if (event === 'PostToolUseFailure' || event === 'PermissionDenied') return void sink.discard(toolUseId);
-
-    const tool = str(p.tool_name) ?? '';
-    const input = obj(p.tool_input);
     const abs = str(input?.file_path);
     if (!input || !abs || !(EDIT_TOOLS as readonly string[]).includes(tool)) return;
     const file = this.files.toRel(abs);

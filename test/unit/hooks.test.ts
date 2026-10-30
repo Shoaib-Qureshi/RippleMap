@@ -146,10 +146,15 @@ describe('hooks config merge', () => {
     expect(pre).toHaveLength(2);
     expect(pre[0]).toEqual(user);
     expect(pre[1]).toMatchObject({
-      matcher: 'Edit|Write|MultiEdit',
+      matcher: 'Edit|Write|MultiEdit|WebFetch|WebSearch|mcp__.*',
       hooks: [{ type: 'command', command: cmd, timeout: 5 }],
     });
     expect((once.hooks as Record<string, unknown>).Stop).toBeDefined();
+    // Bash only after the fact (network commands are picked out of it), never before every command.
+    expect((once.hooks as Record<string, { matcher?: string }[]>).PostToolUse!.at(-1)!.matcher).toContain(
+      'Bash',
+    );
+    expect((once.hooks as Record<string, { matcher?: string }[]>).Stop!.at(-1)!.matcher).toBeUndefined();
     expect(removeHooks(once)).toEqual(settings);
     expect(removeHooks(mergeHooks({}, cmd))).toEqual({});
   });

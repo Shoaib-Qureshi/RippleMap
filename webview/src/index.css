@@ -425,3 +425,40 @@ button:hover {
   margin: 0 0 4px;
   font-size: 0.9em;
 }
+
+.fl-reached {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 60%;
+  padding: 4px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+}
+.fl-reach {
+  padding: 2px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 4px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  cursor: pointer;
+}
+.fl-reach.running {
+  border-color: var(--vscode-focusBorder);
+  animation: fl-pulse 1.2s ease-in-out infinite;
+}
+.fl-reach.problem {
+  border-color: var(--vscode-editorWarning-foreground, #cca700);
+}
+@keyframes fl-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fl-reach.running {
+    animation: none;
+  }
+}

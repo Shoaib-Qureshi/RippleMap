@@ -26,6 +26,8 @@ if (vsixArg !== -1) {
 
 try {
   await runTests({
+    // Latest stable by default (CI). VSCODE_TEST_VERSION=1.143.0 reuses a cached download offline.
+    version: process.env.VSCODE_TEST_VERSION || 'stable',
     extensionDevelopmentPath,
     extensionTestsPath: path.join(root, 'out', 'integration', 'suite.js'),
     launchArgs: [

@@ -1,12 +1,14 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
-import { ClaudeCodeAdapter, hookReply, type AgentNote } from './capture/ClaudeCodeAdapter';
+import { ActivityLog } from './capture/ActivityLog';
+import { ClaudeCodeAdapter, hookReply, OUTSIDE_MARKER, type AgentNote } from './capture/ClaudeCodeAdapter';
 import type { RawEdit } from './capture/EditEvent';
 import { EditTracker } from './capture/EditTracker';
 import { HookServer } from './capture/HookServer';
 import { ManualEditAdapter } from './capture/ManualEditAdapter';
 import { cleanKey, summarize } from './ai/summarize';
 import { saveExport } from './commands/exportGraph';
+import { FORWARDER_FILE } from './commands/hooksConfig';
 import { ensureForwarder, registerHookCommands } from './commands/installHooks';
 import { extractors } from './graph/extractors';
 import { GraphBuilder } from './graph/GraphBuilder';
@@ -18,6 +20,7 @@ import { touchedSymbols } from './graph/symbols';
 import { ParserService } from './parse/ParserService';
 import { Decorations } from './ui/Decorations';
 import { registerEditDiffView } from './ui/EditDiffView';
+import { ActivityProvider } from './ui/ActivityProvider';
 import { EditFeedProvider } from './ui/EditFeedProvider';
 import { BrowserBridge } from './ui/BrowserBridge';
 import { initMessage, PanelProvider } from './ui/PanelProvider';
@@ -27,6 +30,8 @@ import { config, readText, toUri, trackedRel } from './util/workspace';
 
 export interface FlowLensApi {
   tracker: EditTracker;
+  /** Agent calls outside the code (MCP / web / network commands). */
+  activity: ActivityLog;
   hookServer: HookServer;
   graph: GraphService;
   /** Resolves when the initial index has finished. */
@@ -49,9 +54,14 @@ const AGENT_NAME: Record<string, string> = {
 
 export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensApi> {
   const tracker = new EditTracker();
+  const activity = new ActivityLog();
   const sink = {
     emit: (e: RawEdit) => void tracker.record(e),
-    discard: (id?: string, session?: string) => void tracker.discardProposed(id, session),
+    discard: (id?: string, session?: string) => {
+      tracker.discardProposed(id, session);
+      if (!id) activity.interrupt(session); // Stop: that response's unfinished calls never completed
+    },
+    activity: (a: Parameters<ActivityLog['record']>[0]) => void activity.record(a),
   };
   const claude = new ClaudeCodeAdapter({
     toRel: (abs) => trackedRel(vscode.Uri.file(abs)),
@@ -110,6 +120,8 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       notes = { ...notes };
       void ctx.workspaceState.update(NOTES_KEY, notes);
       postNotes();
+    } else if (m.type === 'showActivity') {
+      void vscode.commands.executeCommand('flowlens.activity.focus');
     } else if (m.type === 'ai:summarize') {
       void explain(m.nodeId);
     } else if (m.type === 'scrub') {
@@ -141,6 +153,13 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     panel.post(m);
     browser.post(m);
   };
+  // Agent calls outside the code, for the graph's "reached" blocks (only what the view needs).
+  const postActivity = () =>
+    post({
+      type: 'activity',
+      items: activity.items.map(({ ts, kind, target, status }) => ({ ts, kind, target, status })),
+    });
+  activity.on('change', postActivity);
   const postNotes = () =>
     post({ type: 'notes', notes: Object.fromEntries(Object.entries(notes).map(([id, n]) => [id, n.text])) });
   postNotes();
@@ -263,6 +282,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     statusBar,
     new Decorations(tracker),
     vscode.window.registerTreeDataProvider('flowlens.editFeed', new EditFeedProvider(tracker)),
+    vscode.window.registerTreeDataProvider('flowlens.activity', new ActivityProvider(activity)),
     registerEditDiffView(tracker),
     new ManualEditAdapter().start(sink),
     claude.start(sink),
@@ -285,7 +305,10 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
       panel.reveal();
       await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
     }),
-    vscode.commands.registerCommand('flowlens.clearHistory', () => tracker.clear()),
+    vscode.commands.registerCommand('flowlens.clearHistory', () => {
+      tracker.clear();
+      activity.clear();
+    }),
     vscode.commands.registerCommand('flowlens.setAiKey', async () => {
       if ((await promptKey()) !== undefined)
         void vscode.window.showInformationMessage('FlowLens: AI key saved in VS Code secret storage.');
@@ -345,7 +368,30 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<FlowLensAp
     (e: unknown) =>
       void vscode.window.showWarningMessage(`FlowLens: couldn't update the hook script (${String(e)}).`),
   );
-  return { tracker, hookServer, graph, indexed, webviewErrors };
+  void offerHookUpdate();
+  return { tracker, activity, hookServer, graph, indexed, webviewErrors };
+}
+
+/** Hooks installed before MCP/web activity existed only watch edits: offer a one-click update (never automatic). */
+async function offerHookUpdate(): Promise<void> {
+  for (const f of vscode.workspace.workspaceFolders ?? []) {
+    let text: string;
+    try {
+      const raw = await vscode.workspace.fs.readFile(
+        vscode.Uri.joinPath(f.uri, '.claude', 'settings.local.json'),
+      );
+      text = new TextDecoder().decode(raw);
+    } catch {
+      continue; // no settings file: nothing installed here
+    }
+    if (!text.includes(FORWARDER_FILE) || text.includes(OUTSIDE_MARKER)) continue;
+    const pick = await vscode.window.showInformationMessage(
+      'FlowLens can now show the MCP servers and websites Claude Code reaches. Update its Claude Code hooks?',
+      'Update hooks',
+    );
+    if (pick) await vscode.commands.executeCommand('flowlens.installHooks');
+    return;
+  }
 }
 
 export function deactivate(): void {}
