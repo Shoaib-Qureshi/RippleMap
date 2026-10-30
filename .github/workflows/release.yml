@@ -29,7 +29,7 @@ jobs:
 
       - name: Package (README links and images point at this tag on GitHub)
         run: >
-          npx vsce package --no-dependencies --allow-missing-repository -o ripplemap.vsix
+          npx vsce package --no-dependencies -o ripplemap.vsix
           --baseContentUrl "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}"
           --baseImagesUrl "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}"
 

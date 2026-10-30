@@ -9,6 +9,14 @@
   },
   "private": true,
   "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Shoaib-Qureshi/RippleMap.git"
+  },
+  "homepage": "https://github.com/Shoaib-Qureshi/RippleMap#readme",
+  "bugs": {
+    "url": "https://github.com/Shoaib-Qureshi/RippleMap/issues"
+  },
   "icon": "media/icon.png",
   "galleryBanner": {
     "color": "#14213d",
@@ -244,7 +252,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:integration": "npm run build && node test/integration/runTests.mjs",
-    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository --no-rewrite-relative-links -o ripplemap.vsix",
+    "package": "npm run build && vsce package --no-dependencies --no-rewrite-relative-links -o ripplemap.vsix",
     "test:vsix": "npm run package && node test/integration/runTests.mjs --vsix ripplemap.vsix"
   },
   "devDependencies": {

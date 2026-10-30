@@ -11,10 +11,9 @@ VS Code Marketplace and Open VSX and creates a GitHub release with the `.vsix`
    domain you want. `name` in `package.json` (`ripplemap`) becomes the permanent extension id
    `<publisher>.ripplemap` once published.
 
-2. **GitHub repo.** Create it and push this folder. Set `repository`, `homepage` and `bugs` in
-   `package.json` and remove `--allow-missing-repository` from the `package` script and the workflow.
-   The repo must be **public** for the README screenshots to show on the Marketplace (they are served from
-   `raw.githubusercontent.com` at the release tag); with a private repo, host the images elsewhere.
+2. **GitHub repo: done.** <https://github.com/Shoaib-Qureshi/RippleMap> (public), set as `repository`,
+   `homepage` and `bugs` in `package.json`. README screenshots are served from `raw.githubusercontent.com` at
+   the release tag, so they only show on the Marketplace while the repo stays public.
 
 3. **Windows check.** The first push runs CI on `windows-latest`. Make sure it is green, and try the
    extension once in a real Claude Code session (and Cursor) before tagging.
