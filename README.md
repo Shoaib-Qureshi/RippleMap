@@ -38,13 +38,12 @@ Languages: JavaScript, TypeScript/TSX, PHP, Python (parsed with tree-sitter, com
 
 ## Install
 
-```bash
-npm install
-npm run package          # builds ripplemap.vsix
-code --install-extension ripplemap.vsix
-```
+- **VS Code:** search for **RippleMap** in the Extensions view, or install it from the
+  [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ShoaibQureshi.ripplemap).
+- **Cursor, Windsurf, VSCodium:** install it from [Open VSX](https://open-vsx.org/extension/ShoaibQureshi/ripplemap).
 
-Or press **F5** in this folder to run it in an Extension Development Host.
+Then open a project and run **RippleMap: Open Panel**. RippleMap is in **preview**: feedback and bug reports are
+welcome on [GitHub](https://github.com/Shoaib-Qureshi/RippleMap/issues).
 
 ## Connect Claude Code
 
@@ -91,6 +90,16 @@ Other agents (Copilot, …) show up through the file-change fallback, labelled *
 - **Excludes are folder names.** `.gitignore` isn't read.
 
 ## Development
+
+Build and install from source:
+
+```bash
+npm install
+npm run package          # builds ripplemap.vsix
+code --install-extension ripplemap.vsix
+```
+
+Or press **F5** in this folder to run it in an Extension Development Host.
 
 ```bash
 npm run build             # esbuild (extension) + Vite (webview)
